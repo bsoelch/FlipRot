@@ -52,6 +52,24 @@ main register is 3
 ```
 main register is 0
 
+## IO
+when reading and writing from special memory addresses IO-operations are prefored
+### Char-IO
+the adress 0xffffffffffffffff (2^64-1) is reserved for character IO,
+currently only ascii characters are suppored, 
+it is planed to support in/output of all unicode-characters 
+
+- loading from this address reads a character from the console and moves the char-id in the main register
+- storing to this address writes the character with the id in the main register to the console
+
+### Int-IO
+the adress 0xfffffffffffffffe (2^64-2) is currently used for direct IO of (64bit) integers,
+direct IO of numbers may be removed later
+
+- loading from this address reads a 64bit integer from the console and moves it to the main register
+- storing to this address writes the value of the main register (as hexadecimal number) to the console
+
+
 ## Compile Time Macros
 
 ### Comments
@@ -60,7 +78,7 @@ Comments start with '#__' and end with '#end'
 Example:
 ```
 code 
-#ignore this is a comment #end more code
+#__ this is a comment #end more code
 ```
 
 ### lables
