@@ -760,7 +760,7 @@ int runProgram(Program prog,ProgState* state){
 }
 
 int main(void) {
-	FILE* test=fopen("./test.mcl","r");
+	FILE* test=fopen("./examples/test.mcl","r");
 	if(!test){
 		fputs("Failed to open File",stderr);
 		return EXIT_FAILURE;
