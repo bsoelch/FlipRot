@@ -25,9 +25,10 @@ typedef enum{
 	ROT,//rotates the bits of A 1 to the right
 	FLIP,//flips the lowest bit in A
 	//compiler commands
-	IGNORE_START,//start of comment
+	COMMENT_START,//start of comment
 	UNDEF,//remove label/macro
 	LABEL,//unresolved label
+	INCLUDE,//unresolved include statement
 	LABEL_DEF,//label definition (only in macros)
 	MACRO_START,//start of macro-block
 	END,//end of block

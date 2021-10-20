@@ -35,11 +35,11 @@ typedef enum{
 	READ_ACTION,//read actions
 	READ_COMMENT,//read comment
 	READ_LABEL,//read name of label
+	READ_INCLUDE,//read until start of include-path
+	READ_INCLUDE_PATH,//read name of include-path
 	READ_MACRO_NAME,//read name of macro
 	READ_MACRO_ACTION,//read actions in macro
-	READ_LABEL_MACRO,//read name of label in macro
 	READ_UNDEF,//read name for undef
-	READ_UNDEF_MACRO,//read name for undef in macro
 } ReadState;
 
 bool ensureProgCap(Macro* prog){
@@ -65,10 +65,11 @@ void freeMacro(Macro m){
 			case JUMPIF:
 			case ROT:
 			case FLIP:
-			case IGNORE_START:
+			case COMMENT_START:
 			case MACRO_START:
 			case END:
 				break;//no pointer in data
+			case INCLUDE:
 			case UNDEF:
 			case LABEL:
 			case LABEL_DEF:
@@ -110,11 +111,14 @@ Action loadAction(char* buf,size_t lenBuf){
 	}else if(strCaseEq("FLIP",buf,lenBuf)){
 		ret.type=FLIP;
 	}else if(strCaseEq("#__",buf,lenBuf)){//comment
-		ret.type=IGNORE_START;
+		ret.type=COMMENT_START;
+	}else if(strCaseEq("#include",buf,lenBuf)){
+		ret.type=INCLUDE;
+		ret.data.asString=(String){.len=0,.chars=NULL};
 	}else if(strCaseEq("#undef",buf,lenBuf)){
 		ret.type=UNDEF;
 		ret.data.asString=(String){.len=0,.chars=NULL};
-	}else if(strCaseEq("#label",buf,lenBuf)){//TODO #include
+	}else if(strCaseEq("#label",buf,lenBuf)){
 		ret.type=LABEL_DEF;
 		ret.data.asString=(String){.len=0,.chars=NULL};
 	}else if(strCaseEq("#def",buf,lenBuf)){
@@ -213,7 +217,7 @@ Action resolveLabel(Program* prog,HashMap* map,String label,int depth){
 		get.value.asPosArray.len=0;
 		get.value.asPosArray.data=malloc(INIT_CAP_PROG*sizeof(size_t));
 		if(!get.value.asPosArray.data){
-			fputs("out of memory (207)\n",stderr);
+			fputs("out of memory\n",stderr);
 			return (Action){.type=INVALID,.data.asInt=-1};
 		}
 		return addUnresolvedLabel(get,prog,map,label);
@@ -222,7 +226,7 @@ Action resolveLabel(Program* prog,HashMap* map,String label,int depth){
 			size_t* tmp=realloc(get.value.asPosArray.data,
 					2*get.value.asPosArray.cap*sizeof(size_t));
 			if(!tmp){
-				fputs("out of memory (216)\n",stderr);
+				fputs("out of memory\n",stderr);
 				return (Action){.type=INVALID,.data.asInt=-1};
 			}
 			get.value.asPosArray.data=tmp;
@@ -237,34 +241,37 @@ Action resolveLabel(Program* prog,HashMap* map,String label,int depth){
 		for(size_t i=0;i<get.value.asMacro.len;i++){
 			switch(get.value.asMacro.actions[i].type){
 			case INVALID://invalid action
-			case IGNORE_START:
+			case COMMENT_START:
 			case MACRO_START:
 			case END:
-				fputs("invalid action (234)\n",stderr);
+				fputs("invalid action in Macro\n",stderr);
 				return (Action){.type=INVALID,.data.asInt=1};
 			case UNDEF:;
 				Mapable prev=mapPut(map,get.value.asMacro.actions[i].data.asString,
 						(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
 				if(prev.type==MAPABLE_NONE&&prev.value.asPos!=0){
-					fputs("map put (240)\n",stderr);
+					fputs("map-error in macro.unput\n",stderr);
 					return (Action){.type=INVALID,.data.asInt=-1};
 				}
 				break;
 			case LABEL_DEF:;
 				str=copyString(get.value.asMacro.actions[i].data.asString);
 				if(str.len!=get.value.asMacro.actions[i].data.asString.len){
-					fputs("out of memory (247)\n",stderr);
+					fputs("out of memory \n",stderr);
 					return (Action){.type=INVALID,.data.asInt=1};
 				}
 				if(putLabel(prog,map,str)){
-					fputs("putLabel (251)\n",stderr);
+					fputs("putLabel in macro\n",stderr);
 					return (Action){.type=INVALID,.data.asInt=-1};
 				}
 				break;
-			case LABEL:;//no break
+			case INCLUDE:
+				//TODO include
+				break;
+			case LABEL:
 				str=copyString(get.value.asMacro.actions[i].data.asString);
 				if(str.len!=get.value.asMacro.actions[i].data.asString.len){
-					fputs("out of memory (258)\n",stderr);
+					fputs("out of memory\n",stderr);
 					return (Action){.type=INVALID,.data.asInt=1};
 				}
 				Action a=resolveLabel(prog,map,str,depth+1);
@@ -276,7 +283,7 @@ Action resolveLabel(Program* prog,HashMap* map,String label,int depth){
 					}
 				}
 				if(!ensureProgCap(prog)){
-					fputs("out of memory (270)\n",stderr);
+					fputs("out of memory\n",stderr);
 					return (Action){.type=INVALID,.data.asInt=-1};
 				}
 				prog->actions[prog->len++]=a;
@@ -289,7 +296,7 @@ Action resolveLabel(Program* prog,HashMap* map,String label,int depth){
 			case ROT:
 			case FLIP:
 				if(!ensureProgCap(prog)){
-					fputs("out of memory (283)\n",stderr);
+					fputs("out of memory\n",stderr);
 					return (Action){.type=INVALID,.data.asInt=-1};
 				}
 				prog->actions[prog->len++]=get.value.asMacro.actions[i];
@@ -302,18 +309,19 @@ Action resolveLabel(Program* prog,HashMap* map,String label,int depth){
 }
 
 //XXX allow definition of macros in macros
-Program readFile(FILE* file){
+Program readFile(FILE* file,Program prog){
 	size_t off,i,rem,prev=0,sCap=0;
 	char* buffer=malloc(BUFFER_SIZE);
 	char* s=NULL;
-	Program ret={
-			.actions=malloc(INIT_CAP_PROG*sizeof(Action)),
-			.cap=INIT_CAP_PROG,
-			.len=0
-	};
+	if(!prog.actions){
+		fputs("resetting prog",stderr);
+		prog.actions=malloc(INIT_CAP_PROG*sizeof(Action));
+		prog.cap=INIT_CAP_PROG;
+		prog.len=0;
+	}
 	HashMap* map=createHashMap(MAP_CAP);
-	if(!(buffer&&ret.actions&&map)){
-		fputs("out of memory (297)\n",stderr);
+	if(!(buffer&&prog.actions&&map)){
+		fputs("out of memory\n",stderr);
 		goto errorCleanup;
 	}
 	ReadState state=READ_ACTION,prevState;
@@ -322,7 +330,7 @@ Program readFile(FILE* file){
 	tmpMacro.cap=0;
 	String name,macroName;
 	name.chars=NULL;
-	if(!ret.actions){
+	if(!prog.actions){
 		fputs("out of memory\n",stderr);
 		goto errorCleanup;
 	}
@@ -346,7 +354,7 @@ Program readFile(FILE* file){
 						if(prev+i-off>sCap){
 							char* t=realloc(s,prev+i-off);
 							if(!t){
-								fputs("out of memory (330)\n",stderr);
+								fputs("out of memory\n",stderr);
 								goto errorCleanup;
 							}
 							sCap=prev+i-off;
@@ -361,60 +369,86 @@ Program readFile(FILE* file){
 						t_len=i-off;
 					}
 					Action a=loadAction(t,t_len);
+					//XXX handle comments independent of
 					switch(state){
 					case READ_COMMENT:
 						if(a.type==END){
 							state=prevState;
 						}
 						break;
+					case READ_INCLUDE://TODO include
+						if(t_len>0){
+							if(t[0]=='"'){
+								if(t[t_len-1]=='"'){
+									//XXX include
+								}else{
+									//XXX store data
+									state=READ_INCLUDE_PATH;
+								}
+							}else{
+								//XXX include
+							}
+						}
+						break;
+					case READ_INCLUDE_PATH:
+						if(t[t_len-1]=='"'){
+							//XXX include
+						}else{
+							//XXX store data
+						}
+						break;
 					case READ_LABEL:
 					case READ_UNDEF:
-					case READ_LABEL_MACRO:
-					case READ_UNDEF_MACRO:
-					case READ_MACRO_NAME:;
+					case READ_MACRO_NAME:
 						if((t_len<1)||(loadAction(t,t_len).type!=INVALID)){
 							fputs("invalid macro identifier\n",stderr);
 							goto errorCleanup;
 						}
 						name.chars=malloc(t_len);
 						if(!name.chars){
-							fputs("out of memory (362)\n",stderr);
+							fputs("out of memory\n",stderr);
 							goto errorCleanup;
 						}
 						memcpy(name.chars,t,t_len);
 						name.len=t_len;
 						switch(state){
-						case READ_UNDEF:;
-							Mapable prev=mapPut(map,name,
-									(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
-							if(prev.type==MAPABLE_NONE&&prev.value.asPos!=0){
-								fputs("mapPut (366)\n",stderr);
-								goto errorCleanup;
+						case READ_UNDEF:
+							if(prevState==READ_ACTION){
+								Mapable prev=mapPut(map,name,
+										(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
+								if(prev.type==MAPABLE_NONE&&prev.value.asPos!=0){
+									fputs("mapPut in prog.undef\n",stderr);
+									goto errorCleanup;
+								}
+							}else{
+								if(!ensureProgCap(&tmpMacro)){
+									fputs("out of memory\n",stderr);
+									goto errorCleanup;
+								}
+								tmpMacro.actions[tmpMacro.len++]=(Action){
+									.type=UNDEF,.data.asString=name};
 							}
 							name.chars=NULL;//unlink to prevent double free
 							name.len=0;
+							state=prevState;
 							break;
 						case READ_LABEL:
-							if(putLabel(&ret,map,name)){
-								fputs("putLabel (374)\n",stderr);
-								goto errorCleanup;
+							if(prevState==READ_ACTION){
+								if(putLabel(&prog,map,name)){
+									fputs("putLabel in prog\n",stderr);
+									goto errorCleanup;
+								}
+							}else{
+								if(!ensureProgCap(&tmpMacro)){
+									fputs("out of memory\n",stderr);
+									goto errorCleanup;
+								}
+								tmpMacro.actions[tmpMacro.len++]=(Action){
+									.type=LABEL_DEF,.data.asString=name};
 							}
 							name.chars=NULL;//unlink to prevent double free
 							name.len=0;
-							state=READ_ACTION;
-							break;
-						case READ_UNDEF_MACRO:
-						case READ_LABEL_MACRO:
-							if(!ensureProgCap(&tmpMacro)){
-								fputs("out of memory (391)\n",stderr);
-								goto errorCleanup;
-							}
-							tmpMacro.actions[tmpMacro.len++]=(Action){
-								.type=state==READ_LABEL_MACRO?LABEL_DEF:UNDEF,
-							.data.asString=name};
-							name.chars=NULL;//unlink to prevent double free
-							name.len=0;
-							state=READ_MACRO_ACTION;
+							state=prevState;
 							break;
 						case READ_MACRO_NAME:
 							macroName=name;
@@ -429,18 +463,24 @@ Program readFile(FILE* file){
 					case READ_ACTION:
 					case READ_MACRO_ACTION:
 						switch(a.type){
-						case IGNORE_START:
+						case COMMENT_START:
 							prevState=state;
 							state=READ_COMMENT;
 							break;
 						case LABEL://loadAction does not return type LABEL
 							assert(false&&"unreachable");
 							break;
+						case INCLUDE:
+							prevState=state;
+							state=READ_INCLUDE;
+							break;
 						case UNDEF:
-							state=state==READ_ACTION?READ_UNDEF:READ_UNDEF_MACRO;
+							prevState=state;
+							state=READ_UNDEF;
 							break;
 						case LABEL_DEF:
-							state=state==READ_ACTION?READ_LABEL:READ_LABEL_MACRO;
+							prevState=state;
+							state=READ_LABEL;
 							break;
 						case MACRO_START:
 							if(state==READ_ACTION){
@@ -451,11 +491,11 @@ Program readFile(FILE* file){
 									.actions=malloc(INIT_CAP_PROG*sizeof(Action))
 								};
 								if(!tmpMacro.actions){
-									fputs("out of memory (436)\n",stderr);
+									fputs("out of memory\n",stderr);
 									goto errorCleanup;
 								}
 							}else{
-								fputs("unexpected macro definition (430)\n",stderr);
+								fputs("unexpected macro definition\n",stderr);
 								goto errorCleanup;//unexpected macro definition
 							}
 							break;
@@ -471,22 +511,23 @@ Program readFile(FILE* file){
 								name.len=0;
 								state=READ_ACTION;
 							}else{
-								fputs("unexpected end of macro (442)\n",stderr);
+								fputs("unexpected end of macro\n",stderr);
 								goto errorCleanup;//unexpected end of macro
 							}
 							break;
 						case INVALID:
 							if(state==READ_ACTION){
-								a=resolveLabel(&ret,map,(String){.chars=t,.len=t_len},0);
+								a=resolveLabel(&prog,map,(String){.chars=t,.len=t_len},0);
 								if(a.type==INVALID&&a.data.asInt!=0){
-									fputs("resolveLabel (462)\n",stderr);
+									fprintf(stderr,"unable to resolve label %.*s\n",
+											(int)t_len,t);
 									goto errorCleanup;
 								}
 							}else{
 								a.type=LABEL;
 								a.data.asString.chars=malloc(t_len);
 								if(!a.data.asString.chars){
-									fputs("out of memory (469)\n",stderr);
+									fputs("out of memory\n",stderr);
 									goto errorCleanup;
 								}
 								memcpy(a.data.asString.chars,t,t_len);
@@ -506,16 +547,16 @@ Program readFile(FILE* file){
 						case FLIP:
 							if(state==READ_MACRO_ACTION){
 								if(!ensureProgCap(&tmpMacro)){
-									fputs("out of memory (489)\n",stderr);
+									fputs("out of memory\n",stderr);
 									goto errorCleanup;
 								}
 								tmpMacro.actions[tmpMacro.len++]=a;
 							}else{
-								if(!ensureProgCap(&ret)){
-									fputs("out of memory (495)\n",stderr);
+								if(!ensureProgCap(&prog)){
+									fputs("out of memory\n",stderr);
 									goto errorCleanup;
 								}
-								ret.actions[ret.len++]=a;
+								prog.actions[prog.len++]=a;
 							}
 						}
 					}
@@ -530,7 +571,7 @@ Program readFile(FILE* file){
 			if (prev+i-off>sCap) {
 				char *t = realloc(s, prev + i - off);
 				if (!t) {
-					fputs("out of memory (520)\n",stderr);
+					fputs("out of memory\n",stderr);
 					goto errorCleanup;
 				}
 				sCap=prev+i-off;
@@ -548,18 +589,24 @@ Program readFile(FILE* file){
 			case LABEL:
 				assert(false&&"unreachable");//loadAction does not return LABEL
 				break;
-			case IGNORE_START://unfinished label/macro/comment
+			case INCLUDE:
+			case COMMENT_START://unfinished label/undef/comment
 			case UNDEF:
 			case LABEL_DEF:
-			case MACRO_START:
+				fputs("unfinished or identifier\n",stderr);
+				goto errorCleanup;
+			case MACRO_START://unfinished macro
+				fputs("unfinished macro\n",stderr);
+				goto errorCleanup;
 			case END://unexpected end
-				fputs("unexpected end\n",stderr);
+				fputs("unexpected end-statement\n",stderr);
 				goto errorCleanup;
 			case INVALID:
-				a=resolveLabel(&ret,map,(String){.chars=s,.len=prev},0);
+				a=resolveLabel(&prog,map,(String){.chars=s,.len=prev},0);
 				if(a.type==INVALID){
 					if(a.data.asInt!=0){
-						fputs("resolve label (529)\n",stderr);
+						fprintf(stderr,"unable to resolve label %.*s\n",
+								(int)prev,s);
 						goto errorCleanup;
 					}else{
 						break;
@@ -573,23 +620,23 @@ Program readFile(FILE* file){
 			case JUMPIF:
 			case ROT:
 			case FLIP:
-				if(!ensureProgCap(&ret)){
-					fputs("out of memory (564)\n",stderr);
+				if(!ensureProgCap(&prog)){
+					fputs("out of memory\n",stderr);
 					goto errorCleanup;
 				}
-				ret.actions[ret.len++]=a;
+				prog.actions[prog.len++]=a;
 				break;
 			}
 			break;
 		case READ_COMMENT:
 			if(a.type!=END){
-				fputs("comment syntax (551)\n",stderr);
+				fputs("unfinished comment\n",stderr);
 				goto errorCleanup;
 			}
 			break;
 		case READ_MACRO_ACTION:
 			if(a.type!=END){
-				fputs("macro syntax (556)\n",stderr);
+				fputs("unfinished macro\n",stderr);
 				goto errorCleanup;
 			}
 			if(defineMacro(map,macroName,&tmpMacro)){
@@ -601,34 +648,42 @@ Program readFile(FILE* file){
 			name.chars=NULL;//unlink to prevent double free
 			name.len=0;
 			break;
-		case READ_UNDEF:{
-			Mapable prev=mapPut(map,name,
+		case READ_UNDEF:
+			if(prevState==READ_MACRO_ACTION){
+				fputs("unfinished macro\n",stderr);
+				goto errorCleanup;//unfinished macro
+			}
+			Mapable prevVal=mapPut(map,name,
 					(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
-			if(prev.type==MAPABLE_NONE&&prev.value.asPos!=0){
-				fputs("put error (569)\n",stderr);
+			if(prevVal.type==MAPABLE_NONE&&prevVal.value.asPos!=0){
+				fputs("put error\n",stderr);
 				goto errorCleanup;
 			}
 			name.chars=NULL;//unlink to prevent double free
 			name.len=0;
-		}
+			break;
+		case READ_INCLUDE:
+		case READ_INCLUDE_PATH://TODO
 			break;
 		case READ_LABEL:
+			if(prevState==READ_MACRO_ACTION){
+				fputs("unfinished macro\n",stderr);
+				goto errorCleanup;//unfinished macro
+			}
 			name.chars=malloc(prev);
 			if(!name.chars){
-				fputs("out of memory (604)\n",stderr);
+				fputs("out of memory\n",stderr);
 				goto errorCleanup;
 			}
 			memcpy(name.chars,s,prev);
 			name.len=prev;
-			if(putLabel(&ret,map,name)){
-				fputs("label error (610)\n",stderr);
+			if(putLabel(&prog,map,name)){
+				fprintf(stderr,"unable to define label %.*s",(int)prev,s);
 				goto  errorCleanup;
 			}
 			name.chars=NULL;//unlink to prevent double free
 			name.len=0;
-			break;
-		case READ_UNDEF_MACRO:
-		case READ_LABEL_MACRO:
+		break;
 		case READ_MACRO_NAME:
 			fputs("unfinished macro\n",stderr);
 			goto errorCleanup;//unfinished macro
@@ -636,9 +691,9 @@ Program readFile(FILE* file){
 	}
 	if(false){
 errorCleanup:
-		freeMacro(ret);
-		ret.actions=NULL;
-		ret.len=0;
+		freeMacro(prog);
+		prog.actions=NULL;
+		prog.len=0;
 		freeMacro(tmpMacro);
 		tmpMacro.actions=NULL;
 		tmpMacro.len=0;
@@ -649,7 +704,7 @@ errorCleanup:
 	freeHashMap(map,&freeMapable);
 	free(s);
 	free(buffer);
-	return ret;
+	return prog;
 }
 
 
@@ -664,7 +719,8 @@ const char* typeToStr(ActionType t){
 		case ROT:return "ROT";
 		case FLIP:return "FLIP";
 
-		case IGNORE_START:return "IGNORE_START";
+		case COMMENT_START:return "IGNORE_START";
+		case INCLUDE:return "INCLUDE";
 		case UNDEF:return "UNDEF";
 		case LABEL_DEF:return "LABEL_DEF";
 		case LABEL:return "LABEL";
@@ -724,7 +780,8 @@ int runProgram(Program prog,ProgState* state){
 				break;
 			case LABEL:
 				return -2;//unresolved label
-			case IGNORE_START:
+			case INCLUDE:
+			case COMMENT_START:
 			case LABEL_DEF:
 			case UNDEF:
 			case MACRO_START:
@@ -772,7 +829,12 @@ int main(void) {
 		fputs("Failed to open File",stderr);
 		return EXIT_FAILURE;
 	}
-	Program prog=readFile(test);
+	Program prog={
+			.actions=malloc(sizeof(Action)*INIT_CAP_PROG),
+			.cap=INIT_CAP_PROG,
+			.len=0
+	};
+	prog=readFile(test,prog);
 	fclose(test);
 	if(!prog.actions){
 		fputs("Failed to load Program",stderr);
