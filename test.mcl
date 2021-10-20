@@ -1,0 +1,174 @@
+#def set
+#undef set.jump
+swap
+set.jump
+swap
+jumpif 
+flip
+#label set.jump
+#undef set.jump
+#end
+
+#def clear
+#undef clear.jump
+#label clear.jump
+flip
+swap
+clear.jump
+swap
+jumpif 
+#undef clear.jump
+#end
+
+#def add.arg0 0 #end
+#def add.arg1 1 #end
+#def add.res 2 #end
+#def tmp 3 #end
+
+#def add
+0
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+add.addBit add.addBit add.addBit add.addBit 
+#undef add.arg0
+#undef add.arg1
+#end
+
+#def add.addBit 
+
+#undef add.addBit.carry 
+#undef add.addBit.arg0 
+#undef add.addBit.carry_arg0 
+#undef add.addBit.res00
+#undef add.addBit.res01
+#undef add.addBit.res10
+#undef add.addBit.res11
+#undef add.addBit.end
+
+swap
+add.addBit.carry 
+swap
+jumpif 
+#ignore carry==0 #end
+swap
+add.addBit.arg0 
+swap
+add.arg0 load
+jumpif 
+#ignore carry==0,arg0==0 #end
+swap
+add.addBit.res01
+swap
+add.arg1 load
+jumpif 
+swap
+add.addBit.res00
+swap
+1
+jumpif 
+#label add.addBit.arg0 
+#ignore carry==0,arg0==1 #end
+swap
+add.addBit.res10
+swap
+add.arg1 load
+jumpif 
+swap
+add.addBit.res01
+swap
+1
+jumpif 
+#label add.addBit.carry
+#ignore carry!=0 #end
+swap
+add.addBit.carry_arg0 
+swap
+add.arg0 load
+jumpif 
+#ignore carry==1,arg0==0 #end
+swap
+add.addBit.res10
+swap
+add.arg1 load
+jumpif 
+swap
+add.addBit.res01
+swap
+1
+jumpif 
+#label add.addBit.carry_arg0 
+#ignore carry==1,arg0==1 #end
+swap
+add.addBit.res11
+swap
+add.arg1 load
+jumpif 
+swap
+add.addBit.res10
+swap
+1
+jumpif 
+#label add.addBit.res00
+add.res load clear rot
+swap add.res swap store
+tmp swap 0 store
+swap add.addBit.end swap
+1
+jumpif 
+#label add.addBit.res01
+add.res load set rot
+swap add.res swap store
+tmp swap 0 store
+swap add.addBit.end swap
+1
+jumpif
+#label add.addBit.res10
+add.res load clear rot
+swap add.res swap store
+tmp swap 1 store
+swap add.addBit.end swap
+1
+jumpif 
+#label add.addBit.res11
+add.res load set rot
+swap add.res swap store
+tmp swap 1 store
+1
+#label add.addBit.end
+ #ignore rotate arguments #end
+add.arg0 load rot
+swap add.arg0 swap store
+add.arg1 load rot
+swap add.arg1 swap store
+tmp load
+#undef add.addBit.carry 
+#undef add.addBit.arg0 
+#undef add.addBit.carry_arg0 
+#undef add.addBit.res00
+#undef add.addBit.res01
+#undef add.addBit.res10
+#undef add.addBit.res11
+#undef add.addBit.end
+#end
+
+#def LONG_IO 0xfffffffffffffffe #end
+
+add.arg0 swap 0x1234 store
+add.arg1 swap 0x5678 store 
+add
+LONG_IO swap
+add.res load
+store
