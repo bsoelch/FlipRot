@@ -109,7 +109,7 @@ Action loadAction(char* buf,size_t lenBuf){
 		ret.type=ROT;
 	}else if(strCaseEq("FLIP",buf,lenBuf)){
 		ret.type=FLIP;
-	}else if(strCaseEq("#ignore",buf,lenBuf)){//comment
+	}else if(strCaseEq("#__",buf,lenBuf)){//comment
 		ret.type=IGNORE_START;
 	}else if(strCaseEq("#undef",buf,lenBuf)){
 		ret.type=UNDEF;
@@ -148,6 +148,7 @@ bool putLabel(Program* prog,HashMap* map,String label){
 		break;
 	case MAPABLE_POS:
 	case MAPABLE_MACRO:
+		fprintf(stderr,"redefinition of label %.*s\n",(int)label.len,label.chars);
 		freeMapable(prev);
 		return true;
 		break;
@@ -160,6 +161,8 @@ bool defineMacro(HashMap* map,String name,Macro* macro){
 	Mapable prev=mapPut(map,name,(Mapable){.type=MAPABLE_MACRO,
 		.value.asMacro=*macro});
 	if(prev.type!=MAPABLE_NONE){
+		fprintf(stderr,"redefinition of macro %.*s\n",(int)name.len,name.chars);
+		freeMapable(prev);
 		return true;
 	}else if(prev.value.asPos!=0){
 		return true;
@@ -298,7 +301,7 @@ Action resolveLabel(Program* prog,HashMap* map,String label,int depth){
 	return (Action){.type=INVALID,.data.asInt=0};
 }
 
-
+//XXX allow definition of macros in macros
 Program readFile(FILE* file){
 	size_t off,i,rem,prev=0,sCap=0;
 	char* buffer=malloc(BUFFER_SIZE);
@@ -459,7 +462,9 @@ Program readFile(FILE* file){
 						case END:
 							if(state==READ_MACRO_ACTION){
 								if(defineMacro(map,macroName,&tmpMacro)){
-									fputs("macro def (436)\n",stderr);
+									tmpMacro.actions=NULL;//undef to prevent double free
+									tmpMacro.cap=0;
+									tmpMacro.len=0;
 									goto errorCleanup;
 								}
 								name.chars=NULL;//undef to prevent double free
@@ -588,7 +593,9 @@ Program readFile(FILE* file){
 				goto errorCleanup;
 			}
 			if(defineMacro(map,macroName,&tmpMacro)){
-				fputs("define macro (559)\n",stderr);
+				tmpMacro.actions=NULL;//undef to prevent double free
+				tmpMacro.cap=0;
+				tmpMacro.len=0;
 				goto  errorCleanup;
 			}
 			name.chars=NULL;//unlink to prevent double free

@@ -55,7 +55,7 @@ main register is 0
 ## Compile Time Macros
 
 ### Comments
-Comments start with '#ignore' and end with '#end'
+Comments start with '#__' and end with '#end'
 
 Example:
 ```

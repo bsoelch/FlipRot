@@ -1,13 +1,13 @@
-#def CHAR_IO 0xfffffffffffffffe #end
+#def CHAR_IO 0xffffffffffffffff #end
+#def > store #end
+#def H 0x48 > #end
+#def E 0x45 > #end
+#def L 0x4C > #end
+#def O 0x4F > #end
+#def '' 0x20 > #end
+#def W 0x57 > #end
+#def R 0x52 > #end
+#def D 0x44 > #enda
+
 CHAR_IO swap
-0x48 store
-0x45 store
-0x4C store
-0x4C store
-0x4F store
-0x20 store
-0x57 store
-0x4F store
-0x52 store
-0x4C store
-0x44 store
+H E L L O '' W O R L D
