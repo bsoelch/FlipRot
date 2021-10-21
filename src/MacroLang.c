@@ -355,7 +355,7 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 	if(depth>MAX_DEPTH){
 		return 11;//exceeded maximum include depth
 	}
-	int res=NO_ERR;//TODO struct for error reporting
+	int res=NO_ERR;//TODO report positions of syntax errors
 	size_t off,i,rem,prev=0,sCap=0;
 	char* buffer=malloc(BUFFER_SIZE);
 	char* s=NULL;
@@ -432,7 +432,13 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 										goto errorCleanup;
 									}
 								}else{
-									//XXX store data
+									name.chars=malloc(t_len-1);
+									if(!name.chars){
+										res=ERR_MEM;
+										goto errorCleanup;
+									}
+									memcpy(name.chars,t,t_len-1);
+									name.len=t_len-1;
 									state=READ_INCLUDE_PATH;
 								}
 							}else{
@@ -747,6 +753,7 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 	}
 	if(false){
 errorCleanup:
+		assert(res!=0);
 		freeMacro(tmpMacro);
 		tmpMacro.actions=NULL;
 		tmpMacro.len=0;
