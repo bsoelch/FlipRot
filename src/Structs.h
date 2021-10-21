@@ -21,7 +21,7 @@ typedef enum{
 	SWAP,//swaps A and B
 	LOAD,//replaces A with mem[A]
 	STORE,//stores A in mem[B]
-	JUMPIF,//jumps to B if A&1 is true
+	JUMPIF,//swaps B with the current code position if A&1 is true
 	ROT,//rotates the bits of A 1 to the right
 	FLIP,//flips the lowest bit in A
 	//compiler commands
@@ -59,6 +59,14 @@ typedef struct{
 	size_t* data;
 }PosArray;
 
+typedef struct{
+	uint64_t regA;
+	uint64_t regB;
+
+	size_t memCap;
+	uint64_t* mem;
+}ProgState;
+
 typedef enum{
 	MAPABLE_NONE,
 	MAPABLE_POS,
@@ -73,13 +81,5 @@ typedef struct{
 		PosArray asPosArray;
 	}value;
 }Mapable;
-
-typedef struct{
-	uint64_t regA;
-	uint64_t regB;
-
-	size_t memCap;
-	uint64_t* mem;
-}ProgState;
 
 #endif /* STRUCTS_H_ */

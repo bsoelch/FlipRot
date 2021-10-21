@@ -22,7 +22,11 @@ replaces the value in the main register with the value in memeory at the corresp
 places the value in the main register at the memory adress in the secondary register
 
 ### JUMPIF
-jumps to the code position in the secondary register if the lowest bit of the value in the main register is one
+if the lowest bit of the value in the main register is one the program
+jumps to the address in the secondary register and 
+the secondary register is set to the address after this instruction
+otherwise no operation is performed
+
 
 ### ROT
 rotates the the value in the main register by one bit to the right

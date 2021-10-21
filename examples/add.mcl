@@ -62,13 +62,13 @@ swap
 add.addBit.carry 
 swap
 jumpif 
-#ignore carry==0 #end
+#__ carry==0 #end
 swap
 add.addBit.arg0 
 swap
 add.arg0 load
 jumpif 
-#ignore carry==0,arg0==0 #end
+#__ carry==0,arg0==0 #end
 swap
 add.addBit.res01
 swap
@@ -80,7 +80,7 @@ swap
 1
 jumpif 
 #label add.addBit.arg0 
-#ignore carry==0,arg0==1 #end
+#__ carry==0,arg0==1 #end
 swap
 add.addBit.res10
 swap
@@ -92,13 +92,13 @@ swap
 1
 jumpif 
 #label add.addBit.carry
-#ignore carry!=0 #end
+#__ carry!=0 #end
 swap
 add.addBit.carry_arg0 
 swap
 add.arg0 load
 jumpif 
-#ignore carry==1,arg0==0 #end
+#__ carry==1,arg0==0 #end
 swap
 add.addBit.res10
 swap
@@ -110,7 +110,7 @@ swap
 1
 jumpif 
 #label add.addBit.carry_arg0 
-#ignore carry==1,arg0==1 #end
+#__ carry==1,arg0==1 #end
 swap
 add.addBit.res11
 swap
@@ -148,7 +148,7 @@ swap add.res swap store
 tmp swap 1 store
 1
 #label add.addBit.end
- #ignore rotate arguments #end
+ #__ rotate arguments #end
 add.arg0 load rot
 swap add.arg0 swap store
 add.arg1 load rot
