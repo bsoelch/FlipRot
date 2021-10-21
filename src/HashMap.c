@@ -38,17 +38,17 @@ HashMap* createHashMap(size_t capacity){
 }
 int freeMapable(Mapable e){
 	switch(e.type){
-	case MAPABLE_NONE:return 0;
+	case MAPABLE_NONE:return NO_ERR;
 	case MAPABLE_POS:
-		return 0;
+		return NO_ERR;
 	case MAPABLE_POSARRAY:
 		free(e.value.asPosArray.data);
-		return 0;
+		return NO_ERR;
 	case MAPABLE_MACRO:
 		freeMacro(e.value.asMacro);
-		return 0;
+		return NO_ERR;
 	}
-	return -1;
+	return ERR_MAPABLE_TYPE;
 }
 //the return value is the bitwise or of the return-values of freeMapable
 int freeHashMap(HashMap* map,int(*freeMapable)(Mapable)){

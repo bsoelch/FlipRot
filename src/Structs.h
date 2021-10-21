@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 
+
 typedef struct{
 	size_t len;
 	char* chars;//the only reason chars is not const is to allow the use in free
@@ -81,5 +82,21 @@ typedef struct{
 		PosArray asPosArray;
 	}value;
 }Mapable;
+
+#define NO_ERR 0
+#define ERR_MEM -1
+#define ERR_IO -2
+#define ERR_FILE_NOT_FOUND -3
+#define ERR_MAPABLE_TYPE -4
+
+#define ERR_EXPANSION_OVERFLOW 1
+#define ERR_UNRESOLVED_MACRO 2
+#define ERR_INVALID_IDENTIFER 3
+#define ERR_UNEXPECTED_MACRO_DEF 4
+#define ERR_UNEXPECTED_END 5
+#define ERR_UNFINISHED_IDENTIFER 6
+#define ERR_UNFINISHED_MACRO 7
+#define ERR_UNFINISHED_COMMENT 8
+#define ERR_UNRESOLVED_LABEL 9
 
 #endif /* STRUCTS_H_ */
