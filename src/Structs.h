@@ -12,7 +12,7 @@
 
 typedef struct{
 	size_t len;
-	char* chars;
+	char* chars;//the only reason chars is not const is to allow the use in free
 }String;
 
 typedef enum{
