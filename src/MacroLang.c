@@ -148,9 +148,9 @@ static String getDirFromPath(char* path,size_t pathLen){
 	return dir;
 }
 
-int readFile(FILE* file,Program* prog,String localDir,int depth);
+int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int depth);
 
-int include(Program* prog,String path,String localDir,int depth){
+int include(Program* prog,HashMap* macroMap,String path,String localDir,int depth){
 	size_t pathLen=path.len+localDir.len;
 	char* filePath=malloc(pathLen+1);
 	int r=0;
@@ -167,7 +167,7 @@ int include(Program* prog,String path,String localDir,int depth){
 		filePath[path.len]='\0';
 	}
 	if(file){
-		r=readFile(file,prog,getDirFromPath(filePath,pathLen),depth+1);
+		r=readFile(file,prog,macroMap,getDirFromPath(filePath,pathLen),depth+1);
 		fclose(file);
 	}else{
 		r=ERR_FILE_NOT_FOUND;
@@ -208,8 +208,8 @@ bool putLabel(Program* prog,HashMap* map,String label){
 }
 
 //returns true if and error occurs
-bool defineMacro(HashMap* map,String name,Macro* macro){
-	Mapable prev=mapPut(map,name,(Mapable){.type=MAPABLE_MACRO,
+bool defineMacro(HashMap* macroMap,String name,Macro* macro){
+	Mapable prev=mapPut(macroMap,name,(Mapable){.type=MAPABLE_MACRO,
 		.value.asMacro=*macro});
 	if(prev.type!=MAPABLE_NONE){
 		fprintf(stderr,"redefinition of macro %.*s\n",(int)name.len,name.chars);
@@ -251,11 +251,11 @@ Action addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,String label){
 	//don't use label to prevent double free
 	return (Action){.type=LABEL,.data.asString={.len=0,.chars=NULL}};
 }
-Action resolveLabel(Program* prog,HashMap* map,String label,String localDir,int depth){
+Action resolveLabel(Program* prog,HashMap* macroMap,String label,String localDir,int depth){
 	if(depth>MAX_DEPTH){
 		return (Action){.type=INVALID,.data.asInt=ERR_EXPANSION_OVERFLOW};
 	}
-	Mapable get=mapGet(map,label);
+	Mapable get=mapGet(macroMap,label);
 	switch(get.type){
 	case MAPABLE_NONE://no break
 		get.type=MAPABLE_POSARRAY;
@@ -265,7 +265,7 @@ Action resolveLabel(Program* prog,HashMap* map,String label,String localDir,int 
 		if(!get.value.asPosArray.data){
 			return (Action){.type=INVALID,.data.asInt=ERR_MEM};
 		}
-		return addUnresolvedLabel(get,prog,map,label);
+		return addUnresolvedLabel(get,prog,macroMap,label);
 	case MAPABLE_POSARRAY:
 		if(get.value.asPosArray.len>=get.value.asPosArray.cap){
 			size_t* tmp=realloc(get.value.asPosArray.data,
@@ -276,7 +276,7 @@ Action resolveLabel(Program* prog,HashMap* map,String label,String localDir,int 
 			get.value.asPosArray.data=tmp;
 			get.value.asPosArray.cap*=2;
 		}
-		return addUnresolvedLabel(get,prog,map,label);
+		return addUnresolvedLabel(get,prog,macroMap,label);
 	case MAPABLE_POS:
 		return (Action){.type=LOAD_INT,.data.asInt=get.value.asPos};
 		break;
@@ -290,7 +290,7 @@ Action resolveLabel(Program* prog,HashMap* map,String label,String localDir,int 
 			case END:
 				return (Action){.type=INVALID,.data.asInt=ERR_UNRESOLVED_MACRO};
 			case UNDEF:;
-				Mapable prev=mapPut(map,get.value.asMacro.actions[i].data.asString,
+				Mapable prev=mapPut(macroMap,get.value.asMacro.actions[i].data.asString,
 						(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
 				if(prev.type==MAPABLE_NONE&&prev.value.asPos!=0){
 					return (Action){.type=INVALID,.data.asInt=prev.value.asPos};
@@ -301,13 +301,13 @@ Action resolveLabel(Program* prog,HashMap* map,String label,String localDir,int 
 				if(str.len!=get.value.asMacro.actions[i].data.asString.len){
 					return (Action){.type=INVALID,.data.asInt=ERR_MEM};
 				}
-				int err=putLabel(prog,map,str);
+				int err=putLabel(prog,macroMap,str);
 				if(err){
 					return (Action){.type=INVALID,.data.asInt=err};
 				}
 				break;
 			case INCLUDE:;
-				int r=include(prog,get.value.asMacro.actions[i].data.asString,
+				int r=include(prog,macroMap,get.value.asMacro.actions[i].data.asString,
 						localDir,depth+1);
 				if(!r){
 					return (Action){.type=INVALID,.data.asInt=r};
@@ -318,7 +318,7 @@ Action resolveLabel(Program* prog,HashMap* map,String label,String localDir,int 
 				if(str.len!=get.value.asMacro.actions[i].data.asString.len){
 					return (Action){.type=INVALID,.data.asInt=ERR_MEM};
 				}
-				Action a=resolveLabel(prog,map,str,localDir,depth+1);
+				Action a=resolveLabel(prog,macroMap,str,localDir,depth+1);
 				if(a.type==INVALID){
 					if(a.data.asInt!=0){
 						return a;
@@ -351,7 +351,7 @@ Action resolveLabel(Program* prog,HashMap* map,String label,String localDir,int 
 }
 
 //XXX allow definition of macros in macros
-int readFile(FILE* file,Program* prog,String localDir,int depth){
+int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int depth){
 	if(depth>MAX_DEPTH){
 		return 11;//exceeded maximum include depth
 	}
@@ -365,7 +365,6 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 		prog->cap=INIT_CAP_PROG;
 		prog->len=0;
 	}
-	HashMap* macroMap=createHashMap(MAP_CAP);
 	if(!(buffer&&prog->actions&&macroMap)){
 		res=ERR_MEM;
 		goto errorCleanup;
@@ -426,31 +425,34 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 						if(t_len>0){
 							if(t[0]=='"'){
 								if(t[t_len-1]=='"'){
-									res=include(prog,(String){.chars=t+1,.len=t_len-2}
+									res=include(prog,macroMap,(String){.chars=t+1,.len=t_len-2}
 									,localDir,depth);
 									if(res){
 										goto errorCleanup;
 									}
-								}else{
+									state=prevState;
+								}else{//FIXME handling of whitespaces in filenames
+									//whitespace handling has to be performed  outside the isspace block
 									name.chars=malloc(t_len-1);
 									if(!name.chars){
 										res=ERR_MEM;
 										goto errorCleanup;
 									}
-									memcpy(name.chars,t,t_len-1);
+									memcpy(name.chars,t+1,t_len-1);
 									name.len=t_len-1;
 									state=READ_INCLUDE_PATH;
 								}
 							}else{
-								res=include(prog,(String){.chars=t,.len=t_len}
+								res=include(prog,macroMap,(String){.chars=t,.len=t_len}
 								,localDir,depth);
+								state=prevState;
 								if(res){
 									goto errorCleanup;
 								}
 							}
 						}
 						break;
-					case READ_INCLUDE_PATH:
+					case READ_INCLUDE_PATH:;
 						char* tmp=realloc(name.chars,name.len+t_len);
 						if(!tmp){
 							res=ERR_MEM;
@@ -461,7 +463,8 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 						name.len+=t_len;
 						if(name.chars[name.len-1]=='"'){
 							name.len--;
-							res=include(prog,name,localDir,depth);
+							res=include(prog,macroMap,name,localDir,depth);
+							state=prevState;
 							if(res){
 								goto errorCleanup;
 							}
@@ -748,7 +751,7 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 			}
 			if(s[0]=='"'){
 				if(s[prev-1]=='"'){
-					res=include(prog,(String){.chars=s+1,.len=prev-2}
+					res=include(prog,macroMap,(String){.chars=s+1,.len=prev-2}
 					,localDir,depth);
 					if(res){
 						goto errorCleanup;
@@ -758,7 +761,7 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 					goto errorCleanup;
 				}
 			}else{
-				res=include(prog,(String){.chars=s,.len=prev}
+				res=include(prog,macroMap,(String){.chars=s,.len=prev}
 				,localDir,depth);
 				if(res){
 					goto errorCleanup;
@@ -780,7 +783,7 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 			name.len+=prev;
 			if(name.chars[name.len-1]=='"'){
 				name.len--;
-				res=include(prog,name,localDir,depth);
+				res=include(prog,macroMap,name,localDir,depth);
 				if(res){
 					goto errorCleanup;
 				}
@@ -823,7 +826,6 @@ errorCleanup:
 		name.chars=NULL;
 		name.len=0;
 	}
-	freeHashMap(macroMap,&freeMapable);
 	free(s);
 	free(buffer);
 	return res;
@@ -880,7 +882,7 @@ uint64_t memRead(ProgState* state,uint64_t* err){
 //is an error occurs the return value is 1 otherwise 0 is returned
 uint64_t memWrite(ProgState* state){
 	if(state->regB==LONG_IO_ADDR){
-		printf("%"PRIx64,state->regA);
+		printf("%"PRIx64"\n",state->regA);
 		return 0;
 	}else if(state->regB==CHAR_IO_ADDR){
 		if(state->regA<0x80){
@@ -955,11 +957,53 @@ int main(void) {
 			.cap=INIT_CAP_PROG,
 			.len=0
 	};
-	int res=include(&prog,(String){.chars=filePath,.len=strlen(filePath)},
+	HashMap* macroMap=createHashMap(MAP_CAP);
+	int res=include(&prog,macroMap,(String){.chars=filePath,.len=strlen(filePath)},
 			(String){.len=0,.chars=NULL},0);
-	if(res){
-		fputs("Failed to load Program",stderr);
+	switch(res){
+	case ERR_MEM:
+		fputs("Memory Error\n",stderr);
 		return EXIT_FAILURE;
+	case ERR_IO:
+		fputs("IO Error\n",stderr);
+		return EXIT_FAILURE;
+	case ERR_FILE_NOT_FOUND:
+		fputs("File not found\n",stderr);//TODO get Label of missing file
+		return EXIT_FAILURE;
+
+	case ERR_EXPANSION_OVERFLOW:
+		fputs("Program exceeded expansion threshold\n",stderr);
+		return EXIT_FAILURE;
+    case ERR_UNRESOLVED_MACRO:
+		fputs("Unresolved macro\n",stderr);
+		return EXIT_FAILURE;
+    case ERR_INVALID_IDENTIFER:
+		fputs("Invalid Identifier\n",stderr);
+		return EXIT_FAILURE;
+    case ERR_UNEXPECTED_MACRO_DEF:
+		fputs("Unexpected Macro definition\n",stderr);
+		return EXIT_FAILURE;
+    case ERR_UNEXPECTED_END:
+		fputs("Unexpected #end statement\n",stderr);
+		return EXIT_FAILURE;
+    case ERR_UNFINISHED_IDENTIFER:
+		fputs("Unfinished Identifier\n",stderr);
+		return EXIT_FAILURE;
+    case ERR_UNFINISHED_MACRO:
+		fputs("Unfinished Macro\n",stderr);
+		return EXIT_FAILURE;
+    case ERR_UNFINISHED_COMMENT:
+		fputs("Unfinished Comment\n",stderr);
+		return EXIT_FAILURE;
+    case ERR_UNRESOLVED_LABEL:
+		fputs("Unresolved Label\n",stderr);
+		return EXIT_FAILURE;
+	case NO_ERR:
+		res=freeHashMap(macroMap,&freeMapable);
+		if(res){
+			fputs("Unresolved Label\n",stderr);
+			return EXIT_FAILURE;
+		}
 	}
 	printf("compiled: %"PRIu64" actions \n",(uint64_t)prog.len);
 	ProgState initState={
