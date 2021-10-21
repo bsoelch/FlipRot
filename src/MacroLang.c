@@ -422,7 +422,7 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 							state=prevState;
 						}
 						break;
-					case READ_INCLUDE://TODO include
+					case READ_INCLUDE:
 						if(t_len>0){
 							if(t[0]=='"'){
 								if(t[t_len-1]=='"'){
@@ -451,10 +451,23 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 						}
 						break;
 					case READ_INCLUDE_PATH:
-						if(t[t_len-1]=='"'){
-							//XXX include
-						}else{
-							//XXX store data
+						char* tmp=realloc(name.chars,name.len+t_len);
+						if(!tmp){
+							res=ERR_MEM;
+							goto errorCleanup;
+						}
+						name.chars=tmp;
+						memcpy(name.chars+name.len,t,t_len);
+						name.len+=t_len;
+						if(name.chars[name.len-1]=='"'){
+							name.len--;
+							res=include(prog,name,localDir,depth);
+							if(res){
+								goto errorCleanup;
+							}
+							free(name.chars);
+							name.chars=NULL;
+							name.len=0;
 						}
 						break;
 					case READ_LABEL:
@@ -725,7 +738,56 @@ int readFile(FILE* file,Program* prog,String localDir,int depth){
 			name.len=0;
 			break;
 		case READ_INCLUDE:
-		case READ_INCLUDE_PATH://TODO include
+			if(prevState==READ_MACRO_ACTION){
+				res=ERR_UNFINISHED_MACRO;
+				goto errorCleanup;//unfinished macro
+			}
+			if(prev==0){
+				res=ERR_UNFINISHED_IDENTIFER;
+				goto errorCleanup;
+			}
+			if(s[0]=='"'){
+				if(s[prev-1]=='"'){
+					res=include(prog,(String){.chars=s+1,.len=prev-2}
+					,localDir,depth);
+					if(res){
+						goto errorCleanup;
+					}
+				}else{
+					res=ERR_UNFINISHED_IDENTIFER;
+					goto errorCleanup;
+				}
+			}else{
+				res=include(prog,(String){.chars=s,.len=prev}
+				,localDir,depth);
+				if(res){
+					goto errorCleanup;
+				}
+			}
+		break;
+		case READ_INCLUDE_PATH:
+			if(prevState==READ_MACRO_ACTION){
+				res=ERR_UNFINISHED_MACRO;
+				goto errorCleanup;//unfinished macro
+			}
+			char* tmp=realloc(name.chars,name.len+prev);
+			if(!tmp){
+				res=ERR_MEM;
+				goto errorCleanup;
+			}
+			name.chars=tmp;
+			memcpy(name.chars+name.len,s,prev);
+			name.len+=prev;
+			if(name.chars[name.len-1]=='"'){
+				name.len--;
+				res=include(prog,name,localDir,depth);
+				if(res){
+					goto errorCleanup;
+				}
+			}else{
+				res=ERR_UNFINISHED_IDENTIFER;
+				goto errorCleanup;
+			}
 			break;
 		case READ_LABEL:
 			if(prevState==READ_MACRO_ACTION){
@@ -813,6 +875,7 @@ uint64_t memRead(ProgState* state,uint64_t* err){
 	*err=1;
 	return 0;
 }
+
 //writes a value to memory
 //is an error occurs the return value is 1 otherwise 0 is returned
 uint64_t memWrite(ProgState* state){
