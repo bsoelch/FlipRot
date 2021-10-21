@@ -1,0 +1,17 @@
+start swap 
+1
+jumpif #__ jump to start label #end
+
+#label target
+0 swap store #__ store return addres in mem[0] #end
+0 swap 0 #__ do something #end
+0 load swap #__ load return address to secondary register #end
+1 
+jumpif
+
+#label start
+target swap
+1
+jumpif
+0xfffffffffffffffe swap #__ return point #end
+0x42 store
