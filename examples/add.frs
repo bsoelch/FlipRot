@@ -146,7 +146,6 @@ jumpif
 add.res load set rot
 swap add.res swap store
 tmp swap 1 store
-1
 #label add.addBit.end
  #__ rotate arguments #end
 add.arg0 load rot

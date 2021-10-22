@@ -1,7 +1,8 @@
 #include "subdir/lib1"
 #include consts #__ import const from standard lib #end
-
-LONG_IO swap
-lib1 store
-lib2 store
-space_path store
+1
+swap swap
+rot
+flip flip
+3
+rot

@@ -51,17 +51,6 @@ typedef enum{
 String rootPath;
 
 
-bool ensureProgCap(Macro* prog){
-	if(prog->len>=prog->cap){
-		Action* tmp=realloc(prog->actions,2*(prog->cap)*sizeof(Action));
-		if(!tmp){
-			return false;
-		}
-		prog->actions=tmp;
-		(prog->cap)*=2;
-	}
-	return true;
-}
 void freeMacro(Macro m){
 	if(m.cap>0){
 		for(size_t i=0;i<m.len;i++){
@@ -117,6 +106,7 @@ Action loadAction(String name){
 		ret.type=JUMPIF;
 	}else if(strCaseEq("ROT",name)){
 		ret.type=ROT;
+		ret.data.asInt=1;
 	}else if(strCaseEq("FLIP",name)){
 		ret.type=FLIP;
 	}else if(strCaseEq("#__",name)){//comment
@@ -296,6 +286,50 @@ Action addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,String label){
 	//don't use label to prevent double free
 	return (Action){.type=LABEL,.data.asString={.len=0,.chars=NULL}};
 }
+
+bool addAction(Program* prog,Action a){
+	//compress rot rot, flip flip and swap swap for efficiency
+	if(prog->len>0&&prog->actions[prog->len-1].type==a.type){
+		switch(a.type){
+		case FLIP:
+		case SWAP:
+			prog->len--;
+			return true;
+		case ROT:
+			prog->actions[prog->len-1].data.asInt+=a.data.asInt;
+			return true;
+		case LOAD_INT:
+			prog->actions[prog->len-1].data=a.data;
+			return true;
+
+		//remaining ops are not compressible
+		case INVALID:
+		case LOAD:
+		case STORE:
+		case JUMPIF:
+		case COMMENT_START:
+		case UNDEF:
+		case LABEL:
+		case INCLUDE:
+		case LABEL_DEF:
+		case MACRO_START:
+		case END:
+			break;
+		}
+	}
+	//ensure capacity
+	if(prog->len>=prog->cap){
+		Action* tmp=realloc(prog->actions,2*(prog->cap)*sizeof(Action));
+		if(!tmp){
+			return false;
+		}
+		prog->actions=tmp;
+		(prog->cap)*=2;
+	}
+	prog->actions[prog->len++]=a;
+	return true;
+}
+
 Action resolveLabel(Program* prog,HashMap* macroMap,String label,String localDir,int depth){
 	if(depth>MAX_DEPTH){
 		return (Action){.type=INVALID,.data.asInt=ERR_EXPANSION_OVERFLOW};
@@ -371,10 +405,9 @@ Action resolveLabel(Program* prog,HashMap* macroMap,String label,String localDir
 						break;
 					}
 				}
-				if(!ensureProgCap(prog)){
+				if(!addAction(prog,a)){
 					return (Action){.type=INVALID,.data.asInt=ERR_MEM};
 				}
-				prog->actions[prog->len++]=a;
 				break;
 			case LOAD_INT:
 			case SWAP:
@@ -383,10 +416,9 @@ Action resolveLabel(Program* prog,HashMap* macroMap,String label,String localDir
 			case JUMPIF:
 			case ROT:
 			case FLIP:
-				if(!ensureProgCap(prog)){
+				if(!addAction(prog,get.value.asMacro.actions[i])){
 					return (Action){.type=INVALID,.data.asInt=ERR_MEM};
 				}
-				prog->actions[prog->len++]=get.value.asMacro.actions[i];
 				break;
 			}
 		}
@@ -534,12 +566,11 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 									goto errorCleanup;
 								}
 							}else{
-								if(!ensureProgCap(&tmpMacro)){
+								if(!addAction(&tmpMacro,(Action){.type=UNDEF,
+										.data.asString=name})){
 									res=ERR_MEM;
 									goto errorCleanup;
 								}
-								tmpMacro.actions[tmpMacro.len++]=(Action){
-									.type=UNDEF,.data.asString=name};
 							}
 							name.chars=NULL;//unlink to prevent double free
 							name.len=0;
@@ -552,12 +583,11 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 									goto errorCleanup;
 								}
 							}else{
-								if(!ensureProgCap(&tmpMacro)){
+								if(!addAction(&tmpMacro,(Action){.type=LABEL_DEF,
+										.data.asString=name})){
 									res=ERR_MEM;
 									goto errorCleanup;
 								}
-								tmpMacro.actions[tmpMacro.len++]=(Action){
-									.type=LABEL_DEF,.data.asString=name};
 							}
 							name.chars=NULL;//unlink to prevent double free
 							name.len=0;
@@ -657,17 +687,15 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 						case ROT:
 						case FLIP:
 							if(state==READ_MACRO_ACTION){
-								if(!ensureProgCap(&tmpMacro)){
+								if(!addAction(&tmpMacro,a)){
 									res=ERR_MEM;
 									goto errorCleanup;
 								}
-								tmpMacro.actions[tmpMacro.len++]=a;
 							}else{
-								if(!ensureProgCap(prog)){
+								if(!addAction(prog,a)){
 									res=ERR_MEM;
 									goto errorCleanup;
 								}
-								prog->actions[prog->len++]=a;
 							}
 						}
 					}
@@ -733,11 +761,10 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 			case JUMPIF:
 			case ROT:
 			case FLIP:
-				if(!ensureProgCap(prog)){
+				if(!addAction(prog,a)){
 					res=ERR_MEM;
 					goto errorCleanup;
 				}
-				prog->actions[prog->len++]=a;
 				break;
 			}
 			break;
@@ -973,8 +1000,10 @@ int runProgram(Program prog,ProgState* state){
 					state->regB=tmp+1;
 				}
 				break;
-			case ROT://bit rotate by 1
-				state->regA=state->regA>>1|state->regA<<63;
+			case ROT:;//bit rotation
+				int count=0x3f&prog.actions[ip].data.asInt;
+				//multi-bit rotate only for efficiency
+				state->regA=(state->regA>>count)|(state->regA<<(64-count));
 				break;
 			case FLIP://flip lowest bit
 				state->regA^=1;
@@ -1006,7 +1035,7 @@ int main(int argc,char** argv) {
 		fputs("IO Error\n",stderr);
 		return EXIT_FAILURE;
 	case ERR_FILE_NOT_FOUND:
-		fputs("File not found\n",stderr);//TODO get Label of missing file
+		fputs("File not found\n",stderr);//TODO get name of missing file
 		return EXIT_FAILURE;
 	case ERR_EXPANSION_OVERFLOW:
 		fputs("Program exceeded expansion threshold\n",stderr);
