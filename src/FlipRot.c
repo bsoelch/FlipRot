@@ -1,6 +1,6 @@
 /*
  ============================================================================
- Name        : RotFlipJump_odd.c
+ Name        : FlipRot.c
  Author      : bsoelch
  Description :
  ============================================================================
@@ -27,7 +27,7 @@ static const int BUFFER_SIZE=2048;
 static const int INIT_CAP_PROG=16;
 
 static const char* LIB_DIR_NAME = "lib/";
-static const char* DEFAULT_FILE_EXT = ".rfjo";
+static const char* DEFAULT_FILE_EXT = ".frs";//flipRot-script
 
 //should be large enough
 #define MEM_SIZE 0x1000000
@@ -989,7 +989,7 @@ int main(int argc,char** argv) {
 	//for debug purposes
 	printf("root: %.*s\n",(int)rootPath.len,rootPath.chars);
 
-	char* filePath="./examples/test.rfjo";//XXX get file-path from args
+	char* filePath="./examples/test.frs";//XXX get file-path from args
 	Program prog={
 			.actions=malloc(sizeof(Action)*INIT_CAP_PROG),
 			.cap=INIT_CAP_PROG,
