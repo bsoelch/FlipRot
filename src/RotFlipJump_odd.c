@@ -1,6 +1,6 @@
 /*
  ============================================================================
- Name        : MacroLang.c
+ Name        : RotFlipJump_odd.c
  Author      : bsoelch
  Description :
  ============================================================================
@@ -27,7 +27,7 @@ static const int BUFFER_SIZE=2048;
 static const int INIT_CAP_PROG=16;
 
 static const char* LIB_DIR_NAME = "lib/";
-static const char* DEFAULT_FILE_EXT = ".mcl";
+static const char* DEFAULT_FILE_EXT = ".rfjo";
 
 //should be large enough
 #define MEM_SIZE 0x1000000
