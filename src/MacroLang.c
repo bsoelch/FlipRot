@@ -19,13 +19,15 @@
 #include "Structs.h"
 #include "HashMap.h"
 
-
 static const int MAX_DEPTH=128;
 
 static const int MAP_CAP=2048;
 
 static const int BUFFER_SIZE=2048;
 static const int INIT_CAP_PROG=16;
+
+static const char* LIB_DIR_NAME = "lib/";
+static const char* DEFAULT_FILE_EXT = ".mcl";
 
 //should be large enough
 #define MEM_SIZE 0x1000000
@@ -44,6 +46,10 @@ typedef enum{
 	READ_MACRO_ACTION,//read actions in macro
 	READ_UNDEF,//read name for undef
 } ReadState;
+
+//directory of this executable
+String rootPath;
+
 
 bool ensureProgCap(Macro* prog){
 	if(prog->len>=prog->cap){
@@ -118,7 +124,7 @@ Action loadAction(String name){
 	}else if(strCaseEq("#include",name)){
 		ret.type=INCLUDE;
 		ret.data.asString=(String){.len=0,.chars=NULL};
-	}else if(strCaseEq("#undef",name)){
+	}else if(strCaseEq("#undef",name)){//TODO #ifdef, #ifndef, #else, #endif
 		ret.type=UNDEF;
 		ret.data.asString=(String){.len=0,.chars=NULL};
 	}else if(strCaseEq("#label",name)){
@@ -126,11 +132,13 @@ Action loadAction(String name){
 		ret.data.asString=(String){.len=0,.chars=NULL};
 	}else if(strCaseEq("#def",name)){
 		ret.type=MACRO_START;
-	}else if(strCaseEq("#end",name)){
+	}else if(strCaseEq("#end",name)){//XXX split for comments, rename to #enddef
 		ret.type=END;
 	}
 	return ret;
 }
+
+int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int depth);
 
 static String getDirFromPath(char* path,size_t pathLen){
 	String dir={.len=pathLen,.chars=path};
@@ -147,24 +155,60 @@ static String getDirFromPath(char* path,size_t pathLen){
 	}while(isFile&&dir.len>0);
 	return dir;
 }
-
-int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int depth);
+bool hasFileExtension(String str){
+	size_t i=str.len-1;
+	do{
+		switch(str.chars[i--]){
+		case '.':
+			return true;
+		case '/'://XXX better handling of path separators
+		case '\\':
+		case ':':
+			return false;
+		}
+	}while(i!=SIZE_MAX);
+	return false;
+}
 
 int include(Program* prog,HashMap* macroMap,String path,String localDir,int depth){
-	size_t pathLen=path.len+localDir.len;
-	char* filePath=malloc(pathLen+1);
+	bool hasExt=hasFileExtension(path);
+	size_t pathLen=path.len+(localDir.len>(rootPath.len+strlen(LIB_DIR_NAME))?
+			localDir.len:rootPath.len+strlen(LIB_DIR_NAME))+strlen(DEFAULT_FILE_EXT)+1;
+	char* filePath=malloc(pathLen);
 	int r=0;
 	if(!filePath){
 		return ERR_MEM;//out of memory
 	}
-	filePath[pathLen]='\0';
 	memcpy(filePath,localDir.chars,localDir.len);
 	memcpy(filePath+localDir.len,path.chars,path.len);
+	pathLen=localDir.len+path.len;
+	if(!hasExt){
+		memcpy(filePath+pathLen,DEFAULT_FILE_EXT,strlen(DEFAULT_FILE_EXT));
+		pathLen+=strlen(DEFAULT_FILE_EXT);
+	}
+	filePath[pathLen]='\0';
 	FILE* file=fopen(filePath,"r");
-	if(!file&&localDir.len>0){//try as absolute path
-		memcpy(filePath,path.chars,path.len);
-		pathLen=path.len;
-		filePath[path.len]='\0';
+	if(!file){//try as lib path
+		memcpy(filePath,rootPath.chars,rootPath.len);
+		memcpy(filePath + rootPath.len,LIB_DIR_NAME,strlen(LIB_DIR_NAME));
+		memcpy(filePath+rootPath.len+strlen(LIB_DIR_NAME),path.chars,path.len);
+		pathLen=rootPath.len+strlen(LIB_DIR_NAME)+path.len;
+		if(!hasExt){
+			memcpy(filePath+pathLen,DEFAULT_FILE_EXT,strlen(DEFAULT_FILE_EXT));
+			pathLen+=strlen(DEFAULT_FILE_EXT);
+		}
+		filePath[pathLen]='\0';
+		file=fopen(filePath,"r");
+		if(!file){//try as absolute path
+			memcpy(filePath,path.chars,path.len);
+			pathLen=path.len;
+			if(!hasExt){
+				memcpy(filePath+pathLen,DEFAULT_FILE_EXT,strlen(DEFAULT_FILE_EXT));
+				pathLen+=strlen(DEFAULT_FILE_EXT);
+			}
+			filePath[path.len]='\0';
+			file=fopen(filePath,"r");
+		}
 	}
 	if(file){
 		r=readFile(file,prog,macroMap,getDirFromPath(filePath,pathLen),depth+1);
@@ -940,8 +984,12 @@ int runProgram(Program prog,ProgState* state){
 	return NO_ERR;
 }
 
-int main(void) {
-	char* filePath="./examples/test.mcl";//XXX get path from args
+int main(int argc,char** argv) {
+	rootPath=getDirFromPath(argv[0],strlen(argv[0]));
+	//for debug purposes
+	printf("root: %.*s\n",(int)rootPath.len,rootPath.chars);
+
+	char* filePath="./examples/test.mcl";//XXX get file-path from args
 	Program prog={
 			.actions=malloc(sizeof(Action)*INIT_CAP_PROG),
 			.cap=INIT_CAP_PROG,

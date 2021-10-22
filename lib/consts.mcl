@@ -1,0 +1,4 @@
+#__ List of global constants #end
+
+#def CHAR_IO 0xffffffffffffffff #end
+#def LONG_IO 0xfffffffffffffffe #end
