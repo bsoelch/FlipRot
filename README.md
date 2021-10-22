@@ -1,7 +1,7 @@
-# MacroLang
-MacroLang is minimalistic programming language with compile-time macro system
+# RotFlipJump_odd
+RotFlipJump_odd (RFJo) is minimalistic programming language named after the 3 main Instructions rot, flip and jumpif (jump if odd)
 
-The main idea behind this project is to define a programming language through compile time macros, based on a minimalistic instruction subset.
+The main idea behind this project is to define a programming language with a minimalistic instruction subset that defines mosst instructions though compile time macros and subroutines 
 
 The source code of the languare consists of actions separated by whitespaces, all code words that are not a keyword for the main language of the compiler instructions are interpreted as identifers that can be extended from labels or macros (identifers that are used before a definition can only be replaced by labels)
 
