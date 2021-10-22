@@ -989,7 +989,7 @@ int main(int argc,char** argv) {
 	//for debug purposes
 	printf("root: %.*s\n",(int)rootPath.len,rootPath.chars);
 
-	char* filePath="./examples/test.mcl";//XXX get file-path from args
+	char* filePath="./examples/test.rfjo";//XXX get file-path from args
 	Program prog={
 			.actions=malloc(sizeof(Action)*INIT_CAP_PROG),
 			.cap=INIT_CAP_PROG,
