@@ -1,4 +1,5 @@
-#def CHAR_IO 0xffffffffffffffff #end
+#include core
+
 #def > store #end
 #def H 0x48 > #end
 #def E 0x45 > #end

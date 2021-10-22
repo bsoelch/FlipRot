@@ -1,0 +1,69 @@
+#__ Library of elementar macros #end
+
+#def CHAR_IO 0xffffffffffffffff #end
+#def LONG_IO 0xfffffffffffffffe #end
+
+#__ rotation operations #end
+#def >>1  rot       #end
+#def >>2  >>1  >>1  #end
+#def >>4  >>2  >>2  #end
+#def >>8  >>4  >>4  #end
+#def >>16 >>8  >>8  #end
+#def >>32 >>16 >>16 #end
+
+#def <<32 >>32      #end
+#def <<16 <<32 >>16 #end
+#def <<8  <<16 >>8  #end
+#def <<4  <<8  >>4  #end
+#def <<2  <<4  >>2  #end
+#def <<1  <<2  >>1  #end
+
+#__ flip then rot #end
+#def flipRot flip rot #end
+
+#__ flips all bits #end
+#def not 
+flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
+flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
+flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
+flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
+flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
+flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
+flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
+flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
+#end
+
+#__ sets the lowest bit to 1 #end
+#def set
+#undef set.jump
+swap
+set.jump
+swap
+jumpif 
+flip
+#label set.jump
+#undef set.jump
+#end
+
+#__ sets the lowest bit to 0 #end
+#def clear set flip #end
+
+#__ macros for clearing/setting the lower N bits #end
+
+#def set2  set   rot  set   <<1  #end
+#def set4  set2  >>2  set2  <<4  #end
+#def set8  set4  >>4  set4  <<8  #end
+#def set16 set8  >>8  set8  <<16 #end
+#def set32 set16 >>16 set16 <<32 #end
+
+#def clear2  clear   rot  clear   <<1  #end
+#def clear4  clear2  >>2  clear2  <<4  #end
+#def clear8  clear4  >>4  clear4  <<8  #end
+#def clear16 clear8  >>8  clear8  <<16 #end
+#def clear32 clear16 >>16 clear16 <<32 #end
+
+#__ only keep lower 32 bits #end
+#def (int) >>32 clear32 <<32 #end
+
+#__ only keep lower 8 bits #end
+#def (byte) >>8 clear32 >>32 clear16 >>16 clear8 >>8 #end

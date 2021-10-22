@@ -290,6 +290,7 @@ Action addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,String label){
 bool addAction(Program* prog,Action a){
 	//compress rot rot, flip flip and swap swap for efficiency
 	if(prog->len>0&&prog->actions[prog->len-1].type==a.type){
+		//FIXME don't optimize if a jump targets the second element
 		switch(a.type){
 		case FLIP:
 		case SWAP:
@@ -297,6 +298,9 @@ bool addAction(Program* prog,Action a){
 			return true;
 		case ROT:
 			prog->actions[prog->len-1].data.asInt+=a.data.asInt;
+			if(prog->actions[prog->len-1].data.asInt&0x3f==0){
+				prog->len--;//rot64 => NOP
+			}
 			return true;
 		case LOAD_INT:
 			prog->actions[prog->len-1].data=a.data;

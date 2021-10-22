@@ -1,5 +1,5 @@
 #include "subdir/lib1"
-#include consts #__ import const from standard lib #end
+#include core #__ import core from standard lib #end
 1
 swap swap
 rot
