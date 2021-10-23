@@ -27,6 +27,7 @@ jumps to the address in the secondary register and
 the secondary register is set to the address after this instruction
 otherwise no operation is performed
 
+The behaviour of jump is undefined if the target addess is not set as a label
 
 ### ROT
 rotates the the value in the main register by one bit to the right
