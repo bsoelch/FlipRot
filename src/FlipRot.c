@@ -313,6 +313,10 @@ bool addAction(Program* prog,Action a){
 			return true;
 		case ROT:
 			prog->actions[prog->len-1].data.asInt+=a.data.asInt;
+			if((prog->actions[prog->len-1].data.asInt&0x3f)==0){
+				//remove NOP
+				prog->len--;
+			}
 			return true;
 		//remaining ops are not compressible
 		case INVALID:
