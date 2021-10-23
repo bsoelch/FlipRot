@@ -288,9 +288,11 @@ Action addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,String label){
 }
 
 bool addAction(Program* prog,Action a){
+	/* Disabled until compatible with jump targets
+	 * TODO introduce sub-ip [56:Bit:IP][8Bit:subIp]
+	 * Jumps can target between instructions
 	//compress rot rot, flip flip and swap swap for efficiency
 	if(prog->len>0&&prog->actions[prog->len-1].type==a.type){
-		//FIXME don't optimize if a jump targets the second element
 		switch(a.type){
 		case FLIP:
 		case SWAP:
@@ -320,7 +322,7 @@ bool addAction(Program* prog,Action a){
 		case END:
 			break;
 		}
-	}
+	}*/
 	//ensure capacity
 	if(prog->len>=prog->cap){
 		Action* tmp=realloc(prog->actions,2*(prog->cap)*sizeof(Action));
