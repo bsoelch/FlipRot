@@ -49,21 +49,35 @@ flip
 #def clear set flip #end
 
 #__ macros for clearing/setting the lower N bits #end
+#def setrot   set      rot      #end
+#def setrot2  setrot   setrot   #end
+#def setrot4  setrot2  setrot2  #end
+#def setrot8  setrot4  setrot4  #end
+#def setrot16 setrot8  setrot8  #end
+#def setrot32 setrot16 setrot16 #end
 
-#def set2  set   rot  set   <<1  #end
-#def set4  set2  >>2  set2  <<4  #end
-#def set8  set4  >>4  set4  <<8  #end
-#def set16 set8  >>8  set8  <<16 #end
-#def set32 set16 >>16 set16 <<32 #end
+#def set2  setrot2  <<2  #end
+#def set4  setrot4  <<4  #end
+#def set8  setrot8  <<8  #end
+#def set16 setrot16 <<16 #end
+#def set32 setrot32 <<32 #end
 
-#def clear2  clear   rot  clear   <<1  #end
-#def clear4  clear2  >>2  clear2  <<4  #end
-#def clear8  clear4  >>4  clear4  <<8  #end
-#def clear16 clear8  >>8  clear8  <<16 #end
-#def clear32 clear16 >>16 clear16 <<32 #end
+#def clearrot   clear      rot        #end
+#def clearrot2  clearrot   clearrot   #end
+#def clearrot4  clearrot2  clearrot2  #end
+#def clearrot8  clearrot4  clearrot4  #end
+#def clearrot16 clearrot8  clearrot8  #end
+#def clearrot32 clearrot16 clearrot16 #end
+
+#def clear2  clearrot2  <<2  #end
+#def clear4  clearrot4  <<4  #end
+#def clear8  clearrot8  <<8  #end
+#def clear16 clearrot16 <<16 #end
+#def clear32 clearrot32 <<32 #end
 
 #__ only keep lower 32 bits #end
 #def (int) >>32 clear32 <<32 #end
 
 #__ only keep lower 8 bits #end
 #def (byte) >>8 clear32 >>32 clear16 >>16 clear8 >>8 #end
+

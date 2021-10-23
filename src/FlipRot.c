@@ -29,6 +29,9 @@ static const int INIT_CAP_PROG=16;
 static const char* LIB_DIR_NAME = "lib/";
 static const char* DEFAULT_FILE_EXT = ".frs";//flipRot-script
 
+static const int MAX_SUBADDRESS=0xff;
+static const int SUBADDRESS_SHIFT=8;
+
 //should be large enough
 #define MEM_SIZE 0x1000000
 
@@ -96,19 +99,22 @@ Action loadAction(String name){
 	if(tail==name.chars+name.len){
 		ret.type=LOAD_INT;
 		ret.data.asInt=ll;
-	}else if(strCaseEq("SWAP",name)){
-		ret.type=SWAP;
-	}else if(strCaseEq("LOAD",name)){
-		ret.type=LOAD;
-	}else if(strCaseEq("STORE",name)){
-		ret.type=STORE;
-	}else if(strCaseEq("JUMPIF",name)){
-		ret.type=JUMPIF;
+	}else if(strCaseEq("FLIP",name)){
+		ret.type=FLIP;
+		ret.data.asInt=1;
 	}else if(strCaseEq("ROT",name)){
 		ret.type=ROT;
 		ret.data.asInt=1;
-	}else if(strCaseEq("FLIP",name)){
-		ret.type=FLIP;
+	}else if(strCaseEq("SWAP",name)){
+		ret.type=SWAP;
+		ret.data.asInt=1;
+	}else if(strCaseEq("STORE",name)){
+		ret.type=STORE;
+		ret.data.asInt=1;
+	}else if(strCaseEq("LOAD",name)){
+		ret.type=LOAD;
+	}else if(strCaseEq("JUMPIF",name)){
+		ret.type=JUMPIF;
 	}else if(strCaseEq("#__",name)){//comment
 		ret.type=COMMENT_START;
 	}else if(strCaseEq("#include",name)){
@@ -122,7 +128,7 @@ Action loadAction(String name){
 		ret.data.asString=(String){.len=0,.chars=NULL};
 	}else if(strCaseEq("#def",name)){
 		ret.type=MACRO_START;
-	}else if(strCaseEq("#end",name)){//XXX split for comments, rename to #enddef
+	}else if(strCaseEq("#end",name)){//XXX split from comments, rename to #enddef
 		ret.type=END;
 	}
 	return ret;
@@ -210,10 +216,37 @@ int include(Program* prog,HashMap* macroMap,String path,String localDir,int dept
 	return r;
 }
 
+uint64_t nextJumpAddress(Program* prog){
+	if(prog->len>0){
+		switch(prog->actions[prog->len-1].type){
+				case FLIP:
+				case SWAP:
+				case ROT:
+				case STORE:
+					return ((uint64_t)prog->len-1)<<SUBADDRESS_SHIFT+
+							prog->actions[prog->len-1].data.asInt;
+				case INVALID:
+				case LOAD_INT:
+				case LOAD:
+				case JUMPIF:
+				case COMMENT_START:
+				case UNDEF:
+				case LABEL:
+				case INCLUDE:
+				case LABEL_DEF:
+				case MACRO_START:
+				case END:
+					return ((uint64_t)prog->len)<<SUBADDRESS_SHIFT;
+		}
+	}
+	return 0;
+}
+
 //returns true if and error occurs
 bool putLabel(Program* prog,HashMap* map,String label){
+	uint64_t target = nextJumpAddress(prog);
 	Mapable prev=mapPut(map,label,
-			(Mapable){.type=MAPABLE_POS,.value.asPos=prog->len});
+			(Mapable ) { .type = MAPABLE_POS,.value.asPos = target });
 	switch(prev.type){
 	case MAPABLE_NONE:
 		if(prev.value.asPos!=0){
@@ -224,8 +257,7 @@ bool putLabel(Program* prog,HashMap* map,String label){
 		for(size_t i=0;i<prev.value.asPosArray.len;i++){
 			prog->actions[prev.value.asPosArray.data[i]]=
 			(Action){
-					.type=LOAD_INT,
-					.data.asInt=prog->len
+					.type=LOAD_INT,.data.asInt=target
 			};
 			//XXX check previous data
 		}
@@ -288,28 +320,23 @@ Action addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,String label){
 }
 
 bool addAction(Program* prog,Action a){
-	/* Disabled until compatible with jump targets
-	 * TODO introduce sub-ip [56:Bit:IP][8Bit:subIp]
-	 * Jumps can target between instructions
 	//compress rot rot, flip flip and swap swap for efficiency
 	if(prog->len>0&&prog->actions[prog->len-1].type==a.type){
 		switch(a.type){
 		case FLIP:
 		case SWAP:
-			prog->len--;
-			return true;
 		case ROT:
+		case STORE:
 			prog->actions[prog->len-1].data.asInt+=a.data.asInt;
-			if(prog->actions[prog->len-1].data.asInt&0x3f==0){
-				prog->len--;//rot64 => NOP
+			if(prog->actions[prog->len-1].data.asInt>MAX_SUBADDRESS){
+				a.data.asInt=prog->actions[prog->len-1].data.asInt-MAX_SUBADDRESS;
+				prog->actions[prog->len-1].data.asInt=MAX_SUBADDRESS;
+				break;
 			}
 			return true;
-		case LOAD_INT:
-			prog->actions[prog->len-1].data=a.data;
-			return true;
-
 		//remaining ops are not compressible
 		case INVALID:
+		case LOAD_INT:
 		case LOAD:
 		case STORE:
 		case JUMPIF:
@@ -322,7 +349,7 @@ bool addAction(Program* prog,Action a){
 		case END:
 			break;
 		}
-	}*/
+	}
 	//ensure capacity
 	if(prog->len>=prog->cap){
 		Action* tmp=realloc(prog->actions,2*(prog->cap)*sizeof(Action));
@@ -966,9 +993,12 @@ uint64_t memWrite(ProgState* state){
 
 int runProgram(Program prog,ProgState* state){
 	uint64_t tmp;
-	for(size_t ip=0;ip<prog.len;ip++){
+	int subaddr=0;
+	for(size_t ip=0;ip<prog.len;){
 		switch(prog.actions[ip].type){
 			case INVALID://NOP
+				ip++;
+				subaddr=0;
 				break;
 			case LABEL:
 				return ERR_UNRESOLVED_LABEL;//unresolved label
@@ -979,40 +1009,59 @@ int runProgram(Program prog,ProgState* state){
 			case MACRO_START:
 			case END:
 				return ERR_UNRESOLVED_MACRO;//unresolved macro/label (un)definition
-			case LOAD_INT:
-				state->regA=prog.actions[ip].data.asInt;
+			case FLIP://flip lowest bit
+				state->regA^=(prog.actions[ip].data.asInt^subaddr)&1;
+				ip++;
+				subaddr=0;
+				break;
+			case ROT:;//bit rotation
+				int count=0x3f&(prog.actions[ip].data.asInt-subaddr);
+				//multi-bit rotate only for efficiency
+				state->regA=(state->regA>>count)|(state->regA<<(64-count));
+				ip++;
+				subaddr=0;
 				break;
 			case SWAP:
-				tmp=state->regA;
-				state->regA=state->regB;
-				state->regB=tmp;
+				if((prog.actions[ip].data.asInt^subaddr)&1){
+					tmp=state->regA;
+					state->regA=state->regB;
+					state->regB=tmp;
+				}
+				ip++;
+				subaddr=0;
+				break;
+			case LOAD_INT:
+				state->regA=prog.actions[ip].data.asInt;
+				ip++;
+				subaddr=0;
 				break;
 			case LOAD:
 				state->regA=memRead(state,&tmp);
 				if(tmp!=0){
 					return tmp;
 				}
+				ip++;
+				subaddr=0;
 				break;
 			case STORE:
+				//TODO handle count
 				tmp=memWrite(state);
 				if(tmp!=0){
 					return tmp;
 				}
+				ip++;
+				subaddr=0;
 				break;
 			case JUMPIF:
 				if(state->regA&1){
-					tmp=ip;
-					ip=state->regB-1;//-1 to balance ip++
-					state->regB=tmp+1;
+					tmp=ip+1;
+					ip=state->regB>>SUBADDRESS_SHIFT;
+					subaddr=state->regB&MAX_SUBADDRESS;
+					state->regB=tmp<<SUBADDRESS_SHIFT;
+				}else{
+					ip++;
+					subaddr=0;
 				}
-				break;
-			case ROT:;//bit rotation
-				int count=0x3f&prog.actions[ip].data.asInt;
-				//multi-bit rotate only for efficiency
-				state->regA=(state->regA>>count)|(state->regA<<(64-count));
-				break;
-			case FLIP://flip lowest bit
-				state->regA^=1;
 				break;
 		}
 	}
