@@ -43,16 +43,17 @@ typedef struct{
 	}data;
 } Action;
 
-
 typedef struct{
 	size_t len;
 	size_t cap;
 	Action* actions;
+	uint64_t flags;
 }Program;
 
+#define PROG_FLAG_LABEL 0x1
 typedef Program Macro;
 
-void freeMacro(Macro m);
+void freeMacro(Macro* m);
 
 typedef struct{
 	size_t len;

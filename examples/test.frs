@@ -1,8 +1,0 @@
-#include "subdir/lib1"
-#include core #__ import core from standard lib #end
-1
-swap swap
-rot
-flip flip
-3
-rot

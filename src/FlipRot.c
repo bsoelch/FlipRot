@@ -29,9 +29,6 @@ static const int INIT_CAP_PROG=16;
 static const char* LIB_DIR_NAME = "lib/";
 static const char* DEFAULT_FILE_EXT = ".frs";//flipRot-script
 
-static const int MAX_SUBADDRESS=0xff;
-static const int SUBADDRESS_SHIFT=8;
-
 //should be large enough
 #define MEM_SIZE 0x1000000
 
@@ -53,11 +50,14 @@ typedef enum{
 //directory of this executable
 String rootPath;
 
-
-void freeMacro(Macro m){
-	if(m.cap>0){
-		for(size_t i=0;i<m.len;i++){
-			switch(m.actions[i].type){
+void unlinkMacro(Macro* macro){
+	macro->actions=NULL;
+	macro->cap=macro->len=0;
+}
+void freeMacro(Macro* m){
+	if(m->cap>0){
+		for(size_t i=0;i<m->len;i++){
+			switch(m->actions[i].type){
 			case INVALID:
 			case LOAD_INT:
 			case SWAP:
@@ -74,11 +74,17 @@ void freeMacro(Macro m){
 			case UNDEF:
 			case LABEL:
 			case LABEL_DEF:
-				free(m.actions[i].data.asString.chars);
+				free(m->actions[i].data.asString.chars);
 			}
 		}
-		free(m.actions);
+		free(m->actions);
+		unlinkMacro(m);
 	}
+}
+void reinitMacro(Macro* macro){
+	macro->actions=malloc(sizeof(Action)*INIT_CAP_PROG);
+	macro->cap=INIT_CAP_PROG;
+	macro->len=0;
 }
 
 //test if cStr (NULL-terminated) is equals to str (length len)
@@ -108,11 +114,10 @@ Action loadAction(String name){
 	}else if(strCaseEq("SWAP",name)){
 		ret.type=SWAP;
 		ret.data.asInt=1;
-	}else if(strCaseEq("STORE",name)){
-		ret.type=STORE;
-		ret.data.asInt=1;
 	}else if(strCaseEq("LOAD",name)){
 		ret.type=LOAD;
+	}else if(strCaseEq("STORE",name)){
+		ret.type=STORE;
 	}else if(strCaseEq("JUMPIF",name)){
 		ret.type=JUMPIF;
 	}else if(strCaseEq("#__",name)){//comment
@@ -216,35 +221,15 @@ int include(Program* prog,HashMap* macroMap,String path,String localDir,int dept
 	return r;
 }
 
-uint64_t nextJumpAddress(Program* prog){
-	if(prog->len>0){
-		switch(prog->actions[prog->len-1].type){
-				case FLIP:
-				case SWAP:
-				case ROT:
-				case STORE:
-					return ((uint64_t)prog->len-1)<<SUBADDRESS_SHIFT+
-							prog->actions[prog->len-1].data.asInt;
-				case INVALID:
-				case LOAD_INT:
-				case LOAD:
-				case JUMPIF:
-				case COMMENT_START:
-				case UNDEF:
-				case LABEL:
-				case INCLUDE:
-				case LABEL_DEF:
-				case MACRO_START:
-				case END:
-					return ((uint64_t)prog->len)<<SUBADDRESS_SHIFT;
-		}
-	}
-	return 0;
+size_t jumpAddress(Program* prog){
+	//remember position as jump address
+	prog->flags|=PROG_FLAG_LABEL;
+	return prog->len;
 }
 
 //returns true if and error occurs
 bool putLabel(Program* prog,HashMap* map,String label){
-	uint64_t target = nextJumpAddress(prog);
+	uint64_t target = jumpAddress(prog);
 	Mapable prev=mapPut(map,label,
 			(Mapable ) { .type = MAPABLE_POS,.value.asPos = target });
 	switch(prev.type){
@@ -284,9 +269,7 @@ bool defineMacro(HashMap* macroMap,String name,Macro* macro){
 	}else if(prev.value.asPos!=0){
 		return true;
 	}
-	macro->actions=NULL;
-	macro->cap=0;
-	macro->len=0;
+	unlinkMacro(macro);
 	return false;
 }
 
@@ -310,7 +293,7 @@ Action addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,String label){
 	if(str.len>0&&str.chars==NULL){
 		return (Action){.type=INVALID,.data.asInt=ERR_MEM};
 	}
-	get.value.asPosArray.data[get.value.asPosArray.len++]=prog->len;
+	get.value.asPosArray.data[get.value.asPosArray.len++]=jumpAddress(prog);
 	Mapable res=mapPut(map,str,get);
 	if(res.type==MAPABLE_NONE&&res.value.asPos!=0){
 		return (Action){.type=INVALID,.data.asInt=res.value.asPos};
@@ -321,18 +304,15 @@ Action addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,String label){
 
 bool addAction(Program* prog,Action a){
 	//compress rot rot, flip flip and swap swap for efficiency
-	if(prog->len>0&&prog->actions[prog->len-1].type==a.type){
+	if(prog->len>0&&((prog->flags&PROG_FLAG_LABEL)==0)&&
+			prog->actions[prog->len-1].type==a.type){
 		switch(a.type){
 		case FLIP:
 		case SWAP:
+			prog->len--;
+			return true;
 		case ROT:
-		case STORE:
 			prog->actions[prog->len-1].data.asInt+=a.data.asInt;
-			if(prog->actions[prog->len-1].data.asInt>MAX_SUBADDRESS){
-				a.data.asInt=prog->actions[prog->len-1].data.asInt-MAX_SUBADDRESS;
-				prog->actions[prog->len-1].data.asInt=MAX_SUBADDRESS;
-				break;
-			}
 			return true;
 		//remaining ops are not compressible
 		case INVALID:
@@ -360,6 +340,7 @@ bool addAction(Program* prog,Action a){
 		(prog->cap)*=2;
 	}
 	prog->actions[prog->len++]=a;
+	prog->flags&=~PROG_FLAG_LABEL;//clear flag label on add
 	return true;
 }
 
@@ -492,9 +473,7 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 	char* s=NULL;
 	if(!prog->actions){
 		fputs("resetting prog",stderr);
-		prog->actions=malloc(INIT_CAP_PROG*sizeof(Action));
-		prog->cap=INIT_CAP_PROG;
-		prog->len=0;
+		reinitMacro(prog);
 	}
 	if(!(buffer&&prog->actions&&macroMap)){
 		res=ERR_MEM;
@@ -679,9 +658,7 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 							if(state==READ_MACRO_ACTION){
 								res=defineMacro(macroMap,macroName,&tmpMacro);
 								if(res){
-									tmpMacro.actions=NULL;//undef to prevent double free
-									tmpMacro.cap=0;
-									tmpMacro.len=0;
+									unlinkMacro(&tmpMacro);//undef to prevent double free
 									goto errorCleanup;
 								}
 								name.chars=NULL;//undef to prevent double free
@@ -814,9 +791,7 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 			}
 			res=defineMacro(macroMap,macroName,&tmpMacro);
 			if(res){
-				tmpMacro.actions=NULL;//undef to prevent double free
-				tmpMacro.cap=0;
-				tmpMacro.len=0;
+				unlinkMacro(&tmpMacro);//undef to prevent double free
 				goto  errorCleanup;
 			}
 			name.chars=NULL;//unlink to prevent double free
@@ -913,9 +888,7 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 	if(false){
 errorCleanup:
 		assert(res!=0);
-		freeMacro(tmpMacro);
-		tmpMacro.actions=NULL;
-		tmpMacro.len=0;
+		freeMacro(&tmpMacro);
 		free(name.chars);
 		name.chars=NULL;
 		name.len=0;
@@ -993,12 +966,10 @@ uint64_t memWrite(ProgState* state){
 
 int runProgram(Program prog,ProgState* state){
 	uint64_t tmp;
-	int subaddr=0;
 	for(size_t ip=0;ip<prog.len;){
 		switch(prog.actions[ip].type){
 			case INVALID://NOP
 				ip++;
-				subaddr=0;
 				break;
 			case LABEL:
 				return ERR_UNRESOLVED_LABEL;//unresolved label
@@ -1010,30 +981,23 @@ int runProgram(Program prog,ProgState* state){
 			case END:
 				return ERR_UNRESOLVED_MACRO;//unresolved macro/label (un)definition
 			case FLIP://flip lowest bit
-				state->regA^=(prog.actions[ip].data.asInt^subaddr)&1;
+				state->regA^=1;
 				ip++;
-				subaddr=0;
 				break;
 			case ROT:;//bit rotation
-				int count=0x3f&(prog.actions[ip].data.asInt-subaddr);
-				//multi-bit rotate only for efficiency
+				int count=0x3f&(prog.actions[ip].data.asInt);
 				state->regA=(state->regA>>count)|(state->regA<<(64-count));
 				ip++;
-				subaddr=0;
 				break;
 			case SWAP:
-				if((prog.actions[ip].data.asInt^subaddr)&1){
-					tmp=state->regA;
-					state->regA=state->regB;
-					state->regB=tmp;
-				}
+				tmp=state->regA;
+				state->regA=state->regB;
+				state->regB=tmp;
 				ip++;
-				subaddr=0;
 				break;
 			case LOAD_INT:
 				state->regA=prog.actions[ip].data.asInt;
 				ip++;
-				subaddr=0;
 				break;
 			case LOAD:
 				state->regA=memRead(state,&tmp);
@@ -1041,26 +1005,21 @@ int runProgram(Program prog,ProgState* state){
 					return tmp;
 				}
 				ip++;
-				subaddr=0;
 				break;
 			case STORE:
-				//TODO handle count
 				tmp=memWrite(state);
 				if(tmp!=0){
 					return tmp;
 				}
 				ip++;
-				subaddr=0;
 				break;
 			case JUMPIF:
 				if(state->regA&1){
 					tmp=ip+1;
-					ip=state->regB>>SUBADDRESS_SHIFT;
-					subaddr=state->regB&MAX_SUBADDRESS;
-					state->regB=tmp<<SUBADDRESS_SHIFT;
+					ip=state->regB;
+					state->regB=tmp;
 				}else{
 					ip++;
-					subaddr=0;
 				}
 				break;
 		}
@@ -1074,11 +1033,8 @@ int main(int argc,char** argv) {
 	printf("root: %.*s\n",(int)rootPath.len,rootPath.chars);
 
 	char* filePath="./examples/test.frs";//XXX get file-path from args
-	Program prog={
-			.actions=malloc(sizeof(Action)*INIT_CAP_PROG),
-			.cap=INIT_CAP_PROG,
-			.len=0
-	};
+	Program prog;
+	reinitMacro(&prog);
 	HashMap* macroMap=createHashMap(MAP_CAP);
 	int res=include(&prog,macroMap,(String){.chars=filePath,.len=strlen(filePath)},
 			(String){.len=0,.chars=NULL},0);
