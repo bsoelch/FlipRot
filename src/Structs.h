@@ -17,6 +17,39 @@ typedef struct{
 }String;
 
 typedef enum{
+NO_ERR=0,
+
+ERR_MEM,
+ERR_IO,
+ERR_FILE_NOT_FOUND,
+ERR_MAPABLE_TYPE,
+
+ERR_EXPANSION_OVERFLOW,
+ERR_UNRESOLVED_MACRO,
+ERR_INVALID_IDENTIFER,
+ERR_UNEXPECTED_MACRO_DEF,
+ERR_UNEXPECTED_END,
+ERR_UNFINISHED_IDENTIFER,
+ERR_UNFINISHED_MACRO,
+ERR_UNFINISHED_COMMENT,
+ERR_UNRESOLVED_LABEL,
+ERR_MACRO_REDEF,
+}ErrorCode;
+
+typedef struct{
+	String file;
+	size_t line;
+	size_t posInLine;
+}ErrorPos;
+
+typedef struct{
+	ErrorCode errCode;
+	ErrorPos pos;
+
+}ErrorInfo;
+
+
+typedef enum{
 	INVALID=-1,
 	LOAD_INT,//load int64 to A
 	SWAP,//swaps A and B
@@ -32,7 +65,7 @@ typedef enum{
 	INCLUDE,//unresolved include statement
 	LABEL_DEF,//label definition (only in macros)
 	MACRO_START,//start of macro-block
-	END_DEF,//end of block
+	MACRO_END,//end of block
 }ActionType;
 
 typedef struct{
@@ -84,21 +117,12 @@ typedef struct{
 	}value;
 }Mapable;
 
-#define NO_ERR 0
-#define ERR_MEM -1
-#define ERR_IO -2
-#define ERR_FILE_NOT_FOUND -3
-#define ERR_MAPABLE_TYPE -4
-
-#define ERR_EXPANSION_OVERFLOW 1
-#define ERR_UNRESOLVED_MACRO 2
-#define ERR_INVALID_IDENTIFER 3
-#define ERR_UNEXPECTED_MACRO_DEF 4
-#define ERR_UNEXPECTED_END 5
-#define ERR_UNFINISHED_IDENTIFER 6
-#define ERR_UNFINISHED_MACRO 7
-#define ERR_UNFINISHED_COMMENT 8
-#define ERR_UNRESOLVED_LABEL 9
-#define ERR_MACRO_REDEF 10
+typedef struct{
+	bool isError;
+	union{
+		Action action;
+		ErrorInfo error;
+	}as;
+}ActionOrError;
 
 #endif /* STRUCTS_H_ */

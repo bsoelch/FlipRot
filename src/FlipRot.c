@@ -68,7 +68,7 @@ void freeMacro(Macro* m){
 			case FLIP:
 			case COMMENT_START:
 			case MACRO_START:
-			case END_DEF:
+			case MACRO_END:
 				break;//no pointer in data
 			case INCLUDE:
 			case UNDEF:
@@ -134,27 +134,28 @@ Action loadAction(String name){
 	}else if(strCaseEq("#def",name)){
 		ret.type=MACRO_START;
 	}else if(strCaseEq("#enddef",name)){
-		ret.type=END_DEF;
+		ret.type=MACRO_END;
 	}
 	return ret;
 }
 
-int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int depth);
+ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,String filePath,int depth);
 
-static String getDirFromPath(char* path,size_t pathLen){
-	String dir={.len=pathLen,.chars=path};
-	bool isFile=true;
-	do{
-		switch(dir.chars[--dir.len]){
-		case '/'://XXX better handling of path separators
-		case '\\':
-		case ':':
-			dir.len++;
-			isFile=false;
-			break;
-		}
-	}while(isFile&&dir.len>0);
-	return dir;
+static String getDirFromPath(String path){
+	if(path.len>0){
+		bool isFile=true;
+		do{
+			switch(path.chars[--path.len]){
+			case '/'://XXX better handling of path separators
+			case '\\':
+			case ':':
+				path.len++;
+				isFile=false;
+				break;
+			}
+		}while(isFile&&path.len>0);
+	}
+	return path;
 }
 bool hasFileExtension(String str){
 	size_t i=str.len-1;
@@ -171,20 +172,27 @@ bool hasFileExtension(String str){
 	return false;
 }
 
-int include(Program* prog,HashMap* macroMap,String path,String localDir,int depth){
+ErrorInfo include(Program* prog,HashMap* macroMap,String path,String parentPath,int depth){
 	bool hasExt=hasFileExtension(path);
-	size_t pathLen=path.len+(localDir.len>(rootPath.len+strlen(LIB_DIR_NAME))?
-			localDir.len:rootPath.len+strlen(LIB_DIR_NAME))+strlen(DEFAULT_FILE_EXT)+1;
+	parentPath=getDirFromPath(parentPath);
+	size_t pathLen=path.len+(parentPath.len>(rootPath.len+strlen(LIB_DIR_NAME))?
+			parentPath.len:rootPath.len+strlen(LIB_DIR_NAME))+strlen(DEFAULT_FILE_EXT)+1;
 	char* filePath=malloc(pathLen);
-	int r=0;
+	ErrorInfo r=(ErrorInfo){
+		.errCode=NO_ERR,
+		.pos.file=path,
+		.pos.line=0,
+		.pos.posInLine=0
+	};
 	if(!filePath){
-		return ERR_MEM;//out of memory
+		r.errCode=ERR_MEM;
+		return r;//out of memory
 	}
 	FILE* file;
 	if(path.len>0&&path.chars[0]=='.'){//local file
-		memcpy(filePath,localDir.chars,localDir.len);
-		memcpy(filePath+localDir.len,path.chars+1,path.len-1);
-		pathLen=localDir.len+path.len-1;
+		memcpy(filePath,parentPath.chars,parentPath.len);
+		memcpy(filePath+parentPath.len,path.chars+1,path.len-1);
+		pathLen=parentPath.len+path.len-1;
 		if(!hasExt){
 			memcpy(filePath+pathLen,DEFAULT_FILE_EXT,strlen(DEFAULT_FILE_EXT));
 			pathLen+=strlen(DEFAULT_FILE_EXT);
@@ -214,10 +222,10 @@ int include(Program* prog,HashMap* macroMap,String path,String localDir,int dept
 		}
 	}
 	if(file){
-		r=readFile(file,prog,macroMap,getDirFromPath(filePath,pathLen),depth+1);
+		r=readFile(file,prog,macroMap,(String){.chars=filePath,.len=pathLen},depth+1);
 		fclose(file);
 	}else{
-		r=ERR_FILE_NOT_FOUND;
+		r.errCode=ERR_FILE_NOT_FOUND;
 	}
 	free(filePath);
 	return r;
@@ -290,18 +298,31 @@ String copyString(String source){
 		return str;
 	}
 }
-Action addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,String label){
+ActionOrError addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,ErrorPos pos,String label){
+	ActionOrError ret;
 	String str=copyString(label);
 	if(str.len>0&&str.chars==NULL){
-		return (Action){.type=INVALID,.data.asInt=ERR_MEM};
+		ret.isError=true;
+		ret.as.error=(ErrorInfo){
+			.errCode=ERR_MEM,
+			.pos=pos,
+		};
+		return ret;
 	}
 	get.value.asPosArray.data[get.value.asPosArray.len++]=jumpAddress(prog);
 	Mapable res=mapPut(map,str,get);
 	if(res.type==MAPABLE_NONE&&res.value.asPos!=0){
-		return (Action){.type=INVALID,.data.asInt=res.value.asPos};
+		ret.isError=true;
+		ret.as.error=(ErrorInfo){
+			.errCode=res.value.asPos,
+			.pos=pos,
+		};
+		return ret;
 	}
 	//don't use label to prevent double free
-	return (Action){.type=LABEL,.data.asString={.len=0,.chars=NULL}};
+	ret.isError=false;
+	ret.as.action=(Action){.type=LABEL,.data.asString={.len=0,.chars=NULL}};
+	return ret;
 }
 
 bool addAction(Program* prog,Action a){
@@ -332,7 +353,7 @@ bool addAction(Program* prog,Action a){
 		case INCLUDE:
 		case LABEL_DEF:
 		case MACRO_START:
-		case END_DEF:
+		case MACRO_END:
 			break;
 		}
 	}
@@ -350,9 +371,15 @@ bool addAction(Program* prog,Action a){
 	return true;
 }
 
-Action resolveLabel(Program* prog,HashMap* macroMap,String label,String localDir,int depth){
+ActionOrError resolveLabel(Program* prog,HashMap* macroMap,ErrorPos pos,String label,String filePath,int depth){
+	ActionOrError ret;
 	if(depth>MAX_DEPTH){
-		return (Action){.type=INVALID,.data.asInt=ERR_EXPANSION_OVERFLOW};
+		ret.isError=true;
+		ret.as.error=(ErrorInfo){
+			.errCode=ERR_EXPANSION_OVERFLOW,
+			.pos=pos,
+		};
+		return ret;
 	}
 	Mapable get=mapGet(macroMap,label);
 	switch(get.type){
@@ -362,23 +389,34 @@ Action resolveLabel(Program* prog,HashMap* macroMap,String label,String localDir
 		get.value.asPosArray.len=0;
 		get.value.asPosArray.data=malloc(INIT_CAP_PROG*sizeof(size_t));
 		if(!get.value.asPosArray.data){
-			return (Action){.type=INVALID,.data.asInt=ERR_MEM};
+			ret.isError=true;
+			ret.as.error=(ErrorInfo){
+				.errCode=ERR_MEM,
+				.pos=pos,
+			};
+			return ret;
 		}
-		return addUnresolvedLabel(get,prog,macroMap,label);
+		return addUnresolvedLabel(get,prog,macroMap,pos,label);
 	case MAPABLE_POSARRAY:
 		if(get.value.asPosArray.len>=get.value.asPosArray.cap){
 			size_t* tmp=realloc(get.value.asPosArray.data,
 					2*get.value.asPosArray.cap*sizeof(size_t));
 			if(!tmp){
-				return (Action){.type=INVALID,.data.asInt=ERR_MEM};
+				ret.isError=true;
+				ret.as.error=(ErrorInfo){
+					.errCode=ERR_MEM,
+					.pos=pos,
+				};
+				return ret;
 			}
 			get.value.asPosArray.data=tmp;
 			get.value.asPosArray.cap*=2;
 		}
-		return addUnresolvedLabel(get,prog,macroMap,label);
+		return addUnresolvedLabel(get,prog,macroMap,pos,label);
 	case MAPABLE_POS:
-		return (Action){.type=LOAD_INT,.data.asInt=get.value.asPos};
-		break;
+		ret.isError=false;
+		ret.as.action=(Action){.type=LOAD_INT,.data.asInt=get.value.asPos};
+		return ret;
 	case MAPABLE_MACRO:;
 		String str;
 		for(size_t i=0;i<get.value.asMacro.len;i++){
@@ -386,47 +424,75 @@ Action resolveLabel(Program* prog,HashMap* macroMap,String label,String localDir
 			case INVALID://invalid action
 			case COMMENT_START:
 			case MACRO_START:
-			case END_DEF:
-				return (Action){.type=INVALID,.data.asInt=ERR_UNRESOLVED_MACRO};
+			case MACRO_END:
+				ret.isError=true;
+				ret.as.error=(ErrorInfo){
+					.errCode=ERR_UNRESOLVED_MACRO,
+					.pos=pos,
+				};
+				return ret;
 			case UNDEF:;
 				Mapable prev=mapPut(macroMap,get.value.asMacro.actions[i].data.asString,
 						(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
 				if(prev.type==MAPABLE_NONE&&prev.value.asPos!=0){
-					return (Action){.type=INVALID,.data.asInt=prev.value.asPos};
+					ret.isError=true;
+					ret.as.error=(ErrorInfo){
+						.errCode=prev.value.asPos,
+						.pos=pos,
+					};
+					return ret;
 				}
 				break;
 			case LABEL_DEF:
 				str=copyString(get.value.asMacro.actions[i].data.asString);
 				if(str.len>0&&str.chars==NULL){
-					return (Action){.type=INVALID,.data.asInt=ERR_MEM};
+					ret.isError=true;
+					ret.as.error=(ErrorInfo){
+						.errCode=ERR_MEM,
+						.pos=pos,
+					};
+					return ret;
 				}
 				int err=putLabel(prog,macroMap,str);
 				if(err){
-					return (Action){.type=INVALID,.data.asInt=err};
+					ret.isError=true;
+					ret.as.error=(ErrorInfo){
+						.errCode=err,
+						.pos=pos,
+					};
+					return ret;
 				}
 				break;
 			case INCLUDE:;
-				int r=include(prog,macroMap,get.value.asMacro.actions[i].data.asString,
-						localDir,depth+1);
-				if(!r){
-					return (Action){.type=INVALID,.data.asInt=r};
+				ErrorInfo r=include(prog,macroMap,get.value.asMacro.actions[i].data.asString,
+						filePath,depth+1);
+				if(r.errCode){
+					ret.isError=true;
+					ret.as.error=r;
+					return ret;
 				}
 				break;
 			case LABEL:
 				str=copyString(get.value.asMacro.actions[i].data.asString);
 				if(str.len>0&&str.chars==NULL){
-					return (Action){.type=INVALID,.data.asInt=ERR_MEM};
+					ret.isError=true;
+					ret.as.error=(ErrorInfo){
+						.errCode=ERR_MEM,
+						.pos=pos,
+					};
+					return ret;
 				}
-				Action a=resolveLabel(prog,macroMap,str,localDir,depth+1);
-				if(a.type==INVALID){
-					if(a.data.asInt!=0){
-						return a;
-					}else{
-						break;
-					}
+				ActionOrError a=resolveLabel(prog,macroMap,pos,str,filePath,depth+1);
+				if(a.isError){
+					return a;
 				}
-				if(!addAction(prog,a)){
-					return (Action){.type=INVALID,.data.asInt=ERR_MEM};
+				if(!addAction(prog,a.as.action)){
+					ret.isError=true;
+					ret.as.error=(ErrorInfo){
+						.errCode=ERR_MEM,
+						.pos=pos,
+					};
+					return ret;
 				}
 				break;
 			case LOAD_INT:
@@ -437,14 +503,31 @@ Action resolveLabel(Program* prog,HashMap* macroMap,String label,String localDir
 			case ROT:
 			case FLIP:
 				if(!addAction(prog,get.value.asMacro.actions[i])){
-					return (Action){.type=INVALID,.data.asInt=ERR_MEM};
+					ret.isError=true;
+					ret.as.error=(ErrorInfo){
+						.errCode=ERR_MEM,
+						.pos=pos,
+					};
+					return ret;
 				}
 				break;
 			}
 		}
+		ret.isError=false;
+		ret.as.action=(Action){
+			.type=INVALID,
+			.data.asInt=0
+		};
+		return ret;
 		break;
 	}
-	return (Action){.type=INVALID,.data.asInt=NO_ERR};
+	assert(false&&"unreachable");
+	ret.isError=true;
+	ret.as.error=(ErrorInfo){
+		.errCode=NO_ERR,
+		.pos=pos,
+	};
+	return ret;
 }
 
 String getSegment(size_t* prev,char** s,size_t* sCap,char* buffer,size_t i,size_t off){
@@ -469,11 +552,17 @@ String getSegment(size_t* prev,char** s,size_t* sCap,char* buffer,size_t i,size_
 
 
 //XXX allow definition of macros in macros
-int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int depth){
+ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,String filePath,int depth){
+	ErrorInfo res={.errCode=NO_ERR,
+			.pos.file=filePath,
+			.pos.line=1,
+			.pos.posInLine=0,
+	};
 	if(depth>MAX_DEPTH){
-		return ERR_EXPANSION_OVERFLOW;//exceeded maximum include depth
+		//exceeded maximum include depth
+		res.errCode=ERR_EXPANSION_OVERFLOW;
+		return res;
 	}
-	int res=NO_ERR;//TODO report positions of syntax errors
 	size_t off,i,rem,prev=0,sCap=0;
 	char* buffer=malloc(BUFFER_SIZE);
 	char* s=NULL;
@@ -482,7 +571,7 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 		reinitMacro(prog);
 	}
 	if(!(buffer&&prog->actions&&macroMap)){
-		res=ERR_MEM;
+		res.errCode=ERR_MEM;
 		goto errorCleanup;
 	}
 	ReadState state=READ_ACTION,prevState;
@@ -492,7 +581,7 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 	String name,macroName;
 	name.chars=NULL;
 	if(!prog->actions){
-		res=ERR_MEM;
+		res.errCode=ERR_MEM;
 		goto errorCleanup;
 	}
 	while(1){
@@ -500,13 +589,23 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 		rem=fread(buffer,1,BUFFER_SIZE,file);
 		if(rem==0){
 			if(ferror(stdin)){
-				res=ERR_IO;
+				res.errCode=ERR_IO;
 				goto errorCleanup;
 			}else{
 				break;
 			}
 		}
 		while(rem>0){
+			if((buffer[i]=='\r')||buffer[i]=='\n'){
+				// \r or \n
+				if((buffer[i]=='\r'||((i>0&&buffer[i-1]!='\r')||
+							(i==0&&(prev==0||s[prev-1]!='\r'))))){//not \r\n
+					res.pos.line++;
+					res.pos.posInLine=0;
+				}
+			}else {
+				res.pos.posInLine++;
+			}
 			if(state==READ_COMMENT){
 				if(off<=i-1&&buffer[i-1]=='_'&&buffer[i]=='#'){
 					prev=0;//clear buffered characters
@@ -517,13 +616,14 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 				if(buffer[i]=='"'){
 					String t=getSegment(&prev,&s,&sCap,buffer,i,off);
 					if(!t.chars){
-						res=ERR_MEM;
+						res.errCode=ERR_MEM;
 						goto errorCleanup;
 					}
 					t.chars++;
 					t.len--;//remove quotation marks
-					res=include(prog,macroMap,t,localDir,depth);
-					if(res){
+					res=include(prog,macroMap,t,filePath,depth);
+					//XXX stackTrace
+					if(res.errCode){
 						goto errorCleanup;
 					}
 					off=i+1;
@@ -534,7 +634,6 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 					size_t tmp=prev;//remember prev for transition to multi-word paths
 					String t=getSegment(&prev,&s,&sCap,buffer,i,off);
 					Action a=loadAction(t);
-					//XXX handle comments independent of actions
 					switch(state){
 					case READ_COMMENT:
 					case READ_INCLUDE_MULTIWORD:
@@ -546,8 +645,9 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 								if(t.chars[t.len-1]=='"'){
 									t.chars++;
 									t.len-=2;//remove quotation marks
-									res=include(prog,macroMap,t,localDir,depth);
-									if(res){
+									res=include(prog,macroMap,t,filePath,depth);
+									//XXX stackTrace
+									if(res.errCode){
 										goto errorCleanup;
 									}
 									state=prevState;
@@ -556,9 +656,10 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 									state=READ_INCLUDE_MULTIWORD;
 								}
 							}else{
-								res=include(prog,macroMap,t,localDir,depth);
+								res=include(prog,macroMap,t,filePath,depth);
+								//XXX stackTrace
 								state=prevState;
-								if(res){
+								if(res.errCode){
 									goto errorCleanup;
 								}
 							}
@@ -568,12 +669,12 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 					case READ_UNDEF:
 					case READ_MACRO_NAME:
 						if((t.len<1)||(loadAction(t).type!=INVALID)){
-							res=ERR_INVALID_IDENTIFER;
+							res.errCode=ERR_INVALID_IDENTIFER;
 							goto errorCleanup;
 						}
 						name=copyString(t);
 						if(name.len>0&&name.chars==NULL){
-							res=ERR_MEM;
+							res.errCode=ERR_MEM;
 							goto errorCleanup;
 						}
 						switch(state){
@@ -582,13 +683,13 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 								Mapable prev=mapPut(macroMap,name,
 										(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
 								if(prev.type==MAPABLE_NONE&&prev.value.asPos!=0){
-									res=prev.value.asPos;
+									res.errCode=prev.value.asPos;
 									goto errorCleanup;
 								}
 							}else{
 								if(!addAction(&tmpMacro,(Action){.type=UNDEF,
 										.data.asString=name})){
-									res=ERR_MEM;
+									res.errCode=ERR_MEM;
 									goto errorCleanup;
 								}
 							}
@@ -598,14 +699,14 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 							break;
 						case READ_LABEL:
 							if(prevState==READ_ACTION){
-								res=putLabel(prog,macroMap,name);
-								if(res){
+								if(putLabel(prog,macroMap,name)){
+									res.errCode=ERR_MEM;
 									goto errorCleanup;
 								}
 							}else{
 								if(!addAction(&tmpMacro,(Action){.type=LABEL_DEF,
 										.data.asString=name})){
-									res=ERR_MEM;
+									res.errCode=ERR_MEM;
 									goto errorCleanup;
 								}
 							}
@@ -654,18 +755,18 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 									.actions=malloc(INIT_CAP_PROG*sizeof(Action))
 								};
 								if(!tmpMacro.actions){
-									res=ERR_MEM;
+									res.errCode=ERR_MEM;
 									goto errorCleanup;
 								}
 							}else{
-								res=ERR_UNEXPECTED_MACRO_DEF;
+								res.errCode=ERR_UNEXPECTED_MACRO_DEF;
 								goto errorCleanup;
 							}
 							break;
-						case END_DEF:
+						case MACRO_END:
 							if(state==READ_MACRO_ACTION){
 								if(defineMacro(macroMap,macroName,&tmpMacro)){
-									res=ERR_MACRO_REDEF;
+									res.errCode=ERR_MACRO_REDEF;
 									unlinkMacro(&tmpMacro);//undef to prevent double free
 									goto errorCleanup;
 								}
@@ -673,22 +774,23 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 								name.len=0;
 								state=READ_ACTION;
 							}else{
-								res=ERR_UNEXPECTED_END;
+								res.errCode=ERR_UNEXPECTED_END;
 								goto errorCleanup;//unexpected end of macro
 							}
 							break;
 						case INVALID:
 							if(state==READ_ACTION){
-								a=resolveLabel(prog,macroMap,t,localDir,depth);
-								if(a.type==INVALID&&a.data.asInt!=0){
-									res=a.data.asInt;
+								ActionOrError aOe=resolveLabel(prog,macroMap,res.pos,t,filePath,depth);
+								if(aOe.isError){
+									res=aOe.as.error;
 									goto errorCleanup;
 								}
+								a=aOe.as.action;
 							}else{
 								a.type=LABEL;
 								a.data.asString=copyString(t);
 								if(a.data.asString.len>0&&!a.data.asString.chars){
-									res=ERR_MEM;
+									res.errCode=ERR_MEM;
 									goto errorCleanup;
 								}
 								//fall through to add action
@@ -706,12 +808,12 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 						case FLIP:
 							if(state==READ_MACRO_ACTION){
 								if(!addAction(&tmpMacro,a)){
-									res=ERR_MEM;
+									res.errCode=ERR_MEM;
 									goto errorCleanup;
 								}
 							}else{
 								if(!addAction(prog,a)){
-									res=ERR_MEM;
+									res.errCode=ERR_MEM;
 									goto errorCleanup;
 								}
 							}
@@ -730,7 +832,7 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 			if (prev+i-off>sCap) {
 				char *t = realloc(s, prev + i - off);
 				if (!t) {
-					res=ERR_MEM;
+					res.errCode=ERR_MEM;
 					goto errorCleanup;
 				}
 				sCap=prev+i-off;
@@ -753,23 +855,23 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 			case COMMENT_START://unfinished label/undef/comment
 			case UNDEF:
 			case LABEL_DEF:
-				res=ERR_UNFINISHED_IDENTIFER;
+				res.errCode=ERR_UNFINISHED_IDENTIFER;
 				goto errorCleanup;
 			case MACRO_START://unfinished macro
-				res=ERR_UNFINISHED_MACRO;
+				res.errCode=ERR_UNFINISHED_MACRO;
 				goto errorCleanup;
-			case END_DEF://unexpected end
-				res=ERR_UNEXPECTED_END;
+			case MACRO_END://unexpected end
+				res.errCode=ERR_UNEXPECTED_END;
 				goto errorCleanup;
-			case INVALID:
-				a=resolveLabel(prog,macroMap,t,localDir,depth);
+			case INVALID:;
+				ActionOrError aOe=resolveLabel(prog,macroMap,res.pos,t,filePath,depth);
+				if(aOe.isError){
+					res=aOe.as.error;
+					goto errorCleanup;
+				}
+				a=aOe.as.action;
 				if(a.type==INVALID){
-					if(a.data.asInt!=0){
-						res=a.data.asInt;
-						goto errorCleanup;
-					}else{
-						break;
-					}
+					break;
 				}
 			//no break
 			case LOAD_INT:
@@ -780,7 +882,7 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 			case ROT:
 			case FLIP:
 				if(!addAction(prog,a)){
-					res=ERR_MEM;
+					res.errCode=ERR_MEM;
 					goto errorCleanup;
 				}
 				break;
@@ -788,17 +890,17 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 			break;
 		case READ_COMMENT:
 			if(prev<2||s[prev-1]!='#'||s[prev-2]!='_'){
-				res=ERR_UNFINISHED_COMMENT;
+				res.errCode=ERR_UNFINISHED_COMMENT;
 				goto errorCleanup;
 			}
 			break;
 		case READ_MACRO_ACTION:
-			if(a.type!=END_DEF){
-				res=ERR_UNFINISHED_MACRO;
+			if(a.type!=MACRO_END){
+				res.errCode=ERR_UNFINISHED_MACRO;
 				goto errorCleanup;
 			}
 			if(defineMacro(macroMap,macroName,&tmpMacro)){
-				res=ERR_MACRO_REDEF;
+				res.errCode=ERR_MACRO_REDEF;
 				unlinkMacro(&tmpMacro);//undef to prevent double free
 				goto  errorCleanup;
 			}
@@ -807,13 +909,13 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 			break;
 		case READ_UNDEF:
 			if(prevState==READ_MACRO_ACTION){
-				res=ERR_UNFINISHED_MACRO;
+				res.errCode=ERR_UNFINISHED_MACRO;
 				goto errorCleanup;//unfinished macro
 			}
 			Mapable prevVal=mapPut(macroMap,name,
 					(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
 			if(prevVal.type==MAPABLE_NONE&&prevVal.value.asPos!=0){
-				res=prevVal.value.asPos;
+				res.errCode=prevVal.value.asPos;
 				goto errorCleanup;
 			}
 			name.chars=NULL;//unlink to prevent double free
@@ -821,81 +923,84 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 			break;
 		case READ_INCLUDE:
 			if(prevState==READ_MACRO_ACTION){
-				res=ERR_UNFINISHED_MACRO;
+				res.errCode=ERR_UNFINISHED_MACRO;
 				goto errorCleanup;//unfinished macro
 			}
 			if(prev==0){
-				res=ERR_UNFINISHED_IDENTIFER;
+				res.errCode=ERR_UNFINISHED_IDENTIFER;
 				goto errorCleanup;
 			}
 			if(s[0]=='"'){
 				if(s[prev-1]=='"'){
 					t.chars++;
 					t.len-=2;
-					res=include(prog,macroMap,t,localDir,depth);
-					if(res){
+					res=include(prog,macroMap,t,filePath,depth);
+					//XXX stackTrace
+					if(res.errCode){
 						goto errorCleanup;
 					}
 				}else{
-					res=ERR_UNFINISHED_IDENTIFER;
+					res.errCode=ERR_UNFINISHED_IDENTIFER;
 					goto errorCleanup;
 				}
 			}else{
-				res=include(prog,macroMap,t,localDir,depth);
-				if(res){
+				res=include(prog,macroMap,t,filePath,depth);
+				//XXX stackTrace
+				if(res.errCode){
 					goto errorCleanup;
 				}
 			}
 		break;
 		case READ_INCLUDE_MULTIWORD:
 			if(prevState==READ_MACRO_ACTION){
-				res=ERR_UNFINISHED_MACRO;
+				res.errCode=ERR_UNFINISHED_MACRO;
 				goto errorCleanup;//unfinished macro
 			}
 			if(prev<2){
-				res=ERR_UNFINISHED_IDENTIFER;
+				res.errCode=ERR_UNFINISHED_IDENTIFER;
 				goto errorCleanup;
 			}
 			if(s[prev-1]=='"'){
 				t.chars++;
 				t.len-=2;
-				res=include(prog,macroMap,t,localDir,depth);
-				if(res){
+				res=include(prog,macroMap,t,filePath,depth);
+				//XXX stackTrace
+				if(res.errCode){
 					goto errorCleanup;
 				}
 			}else{
-				res=ERR_UNFINISHED_IDENTIFER;
+				res.errCode=ERR_UNFINISHED_IDENTIFER;
 				goto errorCleanup;
 			}
 			assert(0&&"unimplemented");
 			break;
 		case READ_LABEL:
 			if(prevState==READ_MACRO_ACTION){
-				res=ERR_UNFINISHED_MACRO;
+				res.errCode=ERR_UNFINISHED_MACRO;
 				goto errorCleanup;//unfinished macro
 			}
 			name.chars=malloc(prev);
 			if(!name.chars){
-				res=ERR_MEM;
+				res.errCode=ERR_MEM;
 				goto errorCleanup;
 			}
 			memcpy(name.chars,s,prev);
 			name.len=prev;
-			res=putLabel(prog,macroMap,name);
-			if(res){
+			if(putLabel(prog,macroMap,name)){
+				res.errCode=ERR_MEM;
 				goto  errorCleanup;
 			}
 			name.chars=NULL;//unlink to prevent double free
 			name.len=0;
 		break;
 		case READ_MACRO_NAME:
-			res=ERR_UNFINISHED_MACRO;
+			res.errCode=ERR_UNFINISHED_MACRO;
 			goto errorCleanup;//unfinished macro
 		}
 	}
 	if(false){
 errorCleanup:
-		assert(res!=0);
+		assert(res.errCode!=0);
 		freeMacro(&tmpMacro);
 		free(name.chars);
 		name.chars=NULL;
@@ -924,7 +1029,7 @@ const char* typeToStr(ActionType t){
 		case LABEL_DEF:return "LABEL_DEF";
 		case LABEL:return "LABEL";
 		case MACRO_START:return "MACRO_START";
-		case END_DEF:return "END";
+		case MACRO_END:return "END";
 	}
 	assert(false&&"invalid value for ActionType");
 	return NULL;
@@ -986,7 +1091,7 @@ int runProgram(Program prog,ProgState* state){
 			case LABEL_DEF:
 			case UNDEF:
 			case MACRO_START:
-			case END_DEF:
+			case MACRO_END:
 				return ERR_UNRESOLVED_MACRO;//unresolved macro/label (un)definition
 			case FLIP://flip lowest bit
 				state->regA^=1;
@@ -1035,6 +1140,56 @@ int runProgram(Program prog,ProgState* state){
 	return NO_ERR;
 }
 
+void printError(ErrorInfo err){
+	switch(err.errCode){
+	case ERR_MEM:
+		fputs("Memory Error\n",stderr);
+		break;
+	case ERR_IO:
+		fputs("IO Error\n",stderr);
+		break;
+	case ERR_FILE_NOT_FOUND:
+		fputs("File not found\n",stderr);
+		break;
+	case ERR_EXPANSION_OVERFLOW:
+		fputs("Program exceeded expansion threshold\n",stderr);
+		break;
+	case ERR_UNRESOLVED_MACRO:
+		fputs("Unresolved macro\n",stderr);
+		break;
+	case ERR_INVALID_IDENTIFER:
+		fputs("Invalid Identifier\n",stderr);
+		break;
+	case ERR_UNEXPECTED_MACRO_DEF:
+		fputs("Unexpected Macro definition\n",stderr);
+		break;
+	case ERR_UNEXPECTED_END:
+		fputs("Unexpected #end statement\n",stderr);
+		break;
+	case ERR_UNFINISHED_IDENTIFER:
+		fputs("Unfinished Identifier\n",stderr);
+		break;
+	case ERR_UNFINISHED_MACRO:
+		fputs("Unfinished Macro\n",stderr);
+		break;
+	case ERR_UNFINISHED_COMMENT:
+		fputs("Unfinished Comment\n",stderr);
+		break;
+	case ERR_UNRESOLVED_LABEL:
+		fputs("Unresolved Label\n",stderr);
+		break;
+	case ERR_MACRO_REDEF:
+		fputs("Macro redefinition\n",stderr);
+		break;
+	case NO_ERR:
+		return;
+	default:
+		assert(0&&"unreachable");
+	}
+	fprintf(stderr,"at line:%"PRIu64", pos:%"PRIu64" in %.*s",
+			(uint64_t)err.pos.line,(uint64_t)err.pos.posInLine,
+			(int)err.pos.file.len,err.pos.file.chars);
+}
 
 int main(int argc,char** argv) {
 	if(argc<2){
@@ -1042,65 +1197,23 @@ int main(int argc,char** argv) {
 		puts("usage: <filename>");
 		return EXIT_FAILURE;
 	}
-	rootPath=getDirFromPath(argv[0],strlen(argv[0]));
+	rootPath=getDirFromPath((String){.chars=argv[0],.len=strlen(argv[0])});
 	char* filePath=argv[1];
 	//for debug purposes
 	printf("root: %.*s\n",(int)rootPath.len,rootPath.chars);
 	Program prog;
 	reinitMacro(&prog);
 	HashMap* macroMap=createHashMap(MAP_CAP);
-	int res=include(&prog,macroMap,(String){.chars=filePath,.len=strlen(filePath)},
+	ErrorInfo res=include(&prog,macroMap,(String){.chars=filePath,.len=strlen(filePath)},
 			(String){.len=0,.chars=NULL},0);
-	switch(res){
-	case ERR_MEM:
-		fputs("Memory Error\n",stderr);
+	if(res.errCode){
+		printError(res);
 		return EXIT_FAILURE;
-	case ERR_IO:
-		fputs("IO Error\n",stderr);
-		return EXIT_FAILURE;
-	case ERR_FILE_NOT_FOUND:
-		fputs("File not found\n",stderr);//TODO get name of missing file
-		return EXIT_FAILURE;
-	case ERR_EXPANSION_OVERFLOW:
-		fputs("Program exceeded expansion threshold\n",stderr);
-		return EXIT_FAILURE;
-    case ERR_UNRESOLVED_MACRO:
-		fputs("Unresolved macro\n",stderr);
-		return EXIT_FAILURE;
-    case ERR_INVALID_IDENTIFER:
-		fputs("Invalid Identifier\n",stderr);
-		return EXIT_FAILURE;
-    case ERR_UNEXPECTED_MACRO_DEF:
-		fputs("Unexpected Macro definition\n",stderr);
-		return EXIT_FAILURE;
-    case ERR_UNEXPECTED_END:
-		fputs("Unexpected #end statement\n",stderr);
-		return EXIT_FAILURE;
-    case ERR_UNFINISHED_IDENTIFER:
-		fputs("Unfinished Identifier\n",stderr);
-		return EXIT_FAILURE;
-    case ERR_UNFINISHED_MACRO:
-		fputs("Unfinished Macro\n",stderr);
-		return EXIT_FAILURE;
-    case ERR_UNFINISHED_COMMENT:
-		fputs("Unfinished Comment\n",stderr);
-		return EXIT_FAILURE;
-    case ERR_UNRESOLVED_LABEL:
+	}else if(freeHashMap(macroMap,&freeMapable)){
 		fputs("Unresolved Label\n",stderr);
 		return EXIT_FAILURE;
-    case ERR_MACRO_REDEF:
-		fputs("Macro redefinition\n",stderr);
-		return EXIT_FAILURE;
-	case NO_ERR:
-		res=freeHashMap(macroMap,&freeMapable);
-		if(res){
-			fputs("Unresolved Label\n",stderr);
-			return EXIT_FAILURE;
-		}
-		break;
-	default:
-		assert(0&&"unreachable");
 	}
+
 	printf("compiled: %"PRIu64" actions \n",(uint64_t)prog.len);
 	ProgState initState={
 			.regA=0,
@@ -1113,7 +1226,7 @@ int main(int argc,char** argv) {
 		return EXIT_FAILURE;
 	}
 	fflush(stdout);
-	res=runProgram(prog,&initState);
-	printf("\nexit value:%i",res);
+	int exitCode=runProgram(prog,&initState);
+	printf("\nexit value:%i",exitCode);
 	return EXIT_SUCCESS;
 }
