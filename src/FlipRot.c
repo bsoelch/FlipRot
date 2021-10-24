@@ -167,7 +167,7 @@ bool hasFileExtension(String str){
 		case ':':
 			return false;
 		}
-	}while(i!=SIZE_MAX);
+	}while(i>0);
 	return false;
 }
 
@@ -180,19 +180,18 @@ int include(Program* prog,HashMap* macroMap,String path,String localDir,int dept
 	if(!filePath){
 		return ERR_MEM;//out of memory
 	}
-	memcpy(filePath,localDir.chars,localDir.len);
-	memcpy(filePath+localDir.len,path.chars,path.len);
-	pathLen=localDir.len+path.len;
-	//TODO specify path-type explicitly
-	// path[0]=='.'  -> local
-	// path[0]=='$'  -> lib
-	if(!hasExt){
-		memcpy(filePath+pathLen,DEFAULT_FILE_EXT,strlen(DEFAULT_FILE_EXT));
-		pathLen+=strlen(DEFAULT_FILE_EXT);
-	}
-	filePath[pathLen]='\0';
-	FILE* file=fopen(filePath,"r");
-	if(!file){//try as lib path
+	FILE* file;
+	if(path.len>0&&path.chars[0]=='.'){//local file
+		memcpy(filePath,localDir.chars,localDir.len);
+		memcpy(filePath+localDir.len,path.chars+1,path.len-1);
+		pathLen=localDir.len+path.len-1;
+		if(!hasExt){
+			memcpy(filePath+pathLen,DEFAULT_FILE_EXT,strlen(DEFAULT_FILE_EXT));
+			pathLen+=strlen(DEFAULT_FILE_EXT);
+		}
+		filePath[pathLen]='\0';
+		file=fopen(filePath,"r");
+	}else{//try as lib path
 		memcpy(filePath,rootPath.chars,rootPath.len);
 		memcpy(filePath + rootPath.len,LIB_DIR_NAME,strlen(LIB_DIR_NAME));
 		memcpy(filePath+rootPath.len+strlen(LIB_DIR_NAME),path.chars,path.len);
@@ -1036,12 +1035,17 @@ int runProgram(Program prog,ProgState* state){
 	return NO_ERR;
 }
 
+
 int main(int argc,char** argv) {
+	if(argc<2){
+		puts("no file name provided");
+		puts("usage: <filename>");
+		return EXIT_FAILURE;
+	}
 	rootPath=getDirFromPath(argv[0],strlen(argv[0]));
+	char* filePath=argv[1];
 	//for debug purposes
 	printf("root: %.*s\n",(int)rootPath.len,rootPath.chars);
-
-	char* filePath="./examples/test.frs";//XXX get file-path from args
 	Program prog;
 	reinitMacro(&prog);
 	HashMap* macroMap=createHashMap(MAP_CAP);
