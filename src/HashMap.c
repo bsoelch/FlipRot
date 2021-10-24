@@ -62,10 +62,10 @@ int freeHashMap(HashMap* map,int(*freeMapable)(Mapable)){
 			node=map->nodes[i];
 			while(node){
 				tmp=node;
-				free(node->key.chars);
 				if(freeMapable){
 					ret|=freeMapable(node->data);
 				}
+				free(node->key.chars);
 				node=node->next;
 				free(tmp);
 			}

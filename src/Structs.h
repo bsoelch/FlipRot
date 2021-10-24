@@ -32,7 +32,7 @@ typedef enum{
 	INCLUDE,//unresolved include statement
 	LABEL_DEF,//label definition (only in macros)
 	MACRO_START,//start of macro-block
-	END,//end of block
+	END_DEF,//end of block
 }ActionType;
 
 typedef struct{
@@ -99,5 +99,6 @@ typedef struct{
 #define ERR_UNFINISHED_MACRO 7
 #define ERR_UNFINISHED_COMMENT 8
 #define ERR_UNRESOLVED_LABEL 9
+#define ERR_MACRO_REDEF 10
 
 #endif /* STRUCTS_H_ */

@@ -1,33 +1,33 @@
-#__ Library of elementar macros #end
+#_ Library of elementar macros _#
 
-#def CHAR_IO 0xffffffffffffffff #end
-#def LONG_IO 0xfffffffffffffffe #end
+#def CHAR_IO 0xffffffffffffffff #enddef
+#def LONG_IO 0xfffffffffffffffe #enddef
 
-#def READ_LONG LONG_IO load #end
-#def WRITE_LONG swap LONG_IO swap store #end
+#def READ_LONG LONG_IO load #enddef
+#def WRITE_LONG swap LONG_IO swap store #enddef
 
-#def READ_CHAR CHAR_IO load #end
-#def WRITE_CHAR swap CHAR_IO swap store #end
+#def READ_CHAR CHAR_IO load #enddef
+#def WRITE_CHAR swap CHAR_IO swap store #enddef
 
-#__ rotation operations #end
-#def >>1  rot       #end
-#def >>2  >>1  >>1  #end
-#def >>4  >>2  >>2  #end
-#def >>8  >>4  >>4  #end
-#def >>16 >>8  >>8  #end
-#def >>32 >>16 >>16 #end
+#_ rotation operations _#
+#def >>1  rot       #enddef
+#def >>2  >>1  >>1  #enddef
+#def >>4  >>2  >>2  #enddef
+#def >>8  >>4  >>4  #enddef
+#def >>16 >>8  >>8  #enddef
+#def >>32 >>16 >>16 #enddef
 
-#def <<32 >>32      #end
-#def <<16 <<32 >>16 #end
-#def <<8  <<16 >>8  #end
-#def <<4  <<8  >>4  #end
-#def <<2  <<4  >>2  #end
-#def <<1  <<2  >>1  #end
+#def <<32 >>32      #enddef
+#def <<16 <<32 >>16 #enddef
+#def <<8  <<16 >>8  #enddef
+#def <<4  <<8  >>4  #enddef
+#def <<2  <<4  >>2  #enddef
+#def <<1  <<2  >>1  #enddef
 
-#__ flip then rot #end
-#def flipRot flip rot #end
+#_ flip then rot _#
+#def flipRot flip rot #enddef
 
-#__ flips all bits #end
+#_ flips all bits _#
 #def not 
 flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
 flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
@@ -37,9 +37,9 @@ flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
 flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
 flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
 flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
-#end
+#enddef
 
-#__ sets the lowest bit to 1 #end
+#_ sets the lowest bit to 1 _#
 #def set
 #undef set.jump
 swap
@@ -49,41 +49,41 @@ jumpif
 flip
 #label set.jump
 #undef set.jump
-#end
+#enddef
 
-#__ sets the lowest bit to 0 #end
-#def clear set flip #end
+#_ sets the lowest bit to 0 _#
+#def clear set flip #enddef
 
-#__ macros for clearing/setting the lower N bits #end
-#def setrot   set      rot      #end
-#def setrot2  setrot   setrot   #end
-#def setrot4  setrot2  setrot2  #end
-#def setrot8  setrot4  setrot4  #end
-#def setrot16 setrot8  setrot8  #end
-#def setrot32 setrot16 setrot16 #end
+#_ macros for clearing/setting the lower N bits _#
+#def setrot   set      rot      #enddef
+#def setrot2  setrot   setrot   #enddef
+#def setrot4  setrot2  setrot2  #enddef
+#def setrot8  setrot4  setrot4  #enddef
+#def setrot16 setrot8  setrot8  #enddef
+#def setrot32 setrot16 setrot16 #enddef
 
-#def set2  setrot2  <<2  #end
-#def set4  setrot4  <<4  #end
-#def set8  setrot8  <<8  #end
-#def set16 setrot16 <<16 #end
-#def set32 setrot32 <<32 #end
+#def set2  setrot2  <<2  #enddef
+#def set4  setrot4  <<4  #enddef
+#def set8  setrot8  <<8  #enddef
+#def set16 setrot16 <<16 #enddef
+#def set32 setrot32 <<32 #enddef
 
-#def clearrot   clear      rot        #end
-#def clearrot2  clearrot   clearrot   #end
-#def clearrot4  clearrot2  clearrot2  #end
-#def clearrot8  clearrot4  clearrot4  #end
-#def clearrot16 clearrot8  clearrot8  #end
-#def clearrot32 clearrot16 clearrot16 #end
+#def clearrot   clear      rot        #enddef
+#def clearrot2  clearrot   clearrot   #enddef
+#def clearrot4  clearrot2  clearrot2  #enddef
+#def clearrot8  clearrot4  clearrot4  #enddef
+#def clearrot16 clearrot8  clearrot8  #enddef
+#def clearrot32 clearrot16 clearrot16 #enddef
 
-#def clear2  clearrot2  <<2  #end
-#def clear4  clearrot4  <<4  #end
-#def clear8  clearrot8  <<8  #end
-#def clear16 clearrot16 <<16 #end
-#def clear32 clearrot32 <<32 #end
+#def clear2  clearrot2  <<2  #enddef
+#def clear4  clearrot4  <<4  #enddef
+#def clear8  clearrot8  <<8  #enddef
+#def clear16 clearrot16 <<16 #enddef
+#def clear32 clearrot32 <<32 #enddef
 
-#__ only keep lower 32 bits #end
-#def (int) >>32 clear32 <<32 #end
+#_ only keep lower 32 bits _#
+#def (int) >>32 clear32 <<32 #enddef
 
-#__ only keep lower 8 bits #end
-#def (byte) >>8 clear32 >>32 clear16 >>16 clear8 >>8 #end
+#_ only keep lower 8 bits _#
+#def (byte) >>8 clear32 >>32 clear16 >>16 clear8 >>8 #enddef
 

@@ -68,7 +68,7 @@ void freeMacro(Macro* m){
 			case FLIP:
 			case COMMENT_START:
 			case MACRO_START:
-			case END:
+			case END_DEF:
 				break;//no pointer in data
 			case INCLUDE:
 			case UNDEF:
@@ -120,7 +120,7 @@ Action loadAction(String name){
 		ret.type=STORE;
 	}else if(strCaseEq("JUMPIF",name)){
 		ret.type=JUMPIF;
-	}else if(strCaseEq("#__",name)){//comment
+	}else if(strCaseEq("#_",name)){//comment
 		ret.type=COMMENT_START;
 	}else if(strCaseEq("#include",name)){
 		ret.type=INCLUDE;
@@ -133,8 +133,8 @@ Action loadAction(String name){
 		ret.data.asString=(String){.len=0,.chars=NULL};
 	}else if(strCaseEq("#def",name)){
 		ret.type=MACRO_START;
-	}else if(strCaseEq("#end",name)){//XXX split from comments, rename to #enddef
-		ret.type=END;
+	}else if(strCaseEq("#enddef",name)){
+		ret.type=END_DEF;
 	}
 	return ret;
 }
@@ -183,6 +183,9 @@ int include(Program* prog,HashMap* macroMap,String path,String localDir,int dept
 	memcpy(filePath,localDir.chars,localDir.len);
 	memcpy(filePath+localDir.len,path.chars,path.len);
 	pathLen=localDir.len+path.len;
+	//TODO specify path-type explicitly
+	// path[0]=='.'  -> local
+	// path[0]=='$'  -> lib
 	if(!hasExt){
 		memcpy(filePath+pathLen,DEFAULT_FILE_EXT,strlen(DEFAULT_FILE_EXT));
 		pathLen+=strlen(DEFAULT_FILE_EXT);
@@ -330,7 +333,7 @@ bool addAction(Program* prog,Action a){
 		case INCLUDE:
 		case LABEL_DEF:
 		case MACRO_START:
-		case END:
+		case END_DEF:
 			break;
 		}
 	}
@@ -384,7 +387,7 @@ Action resolveLabel(Program* prog,HashMap* macroMap,String label,String localDir
 			case INVALID://invalid action
 			case COMMENT_START:
 			case MACRO_START:
-			case END:
+			case END_DEF:
 				return (Action){.type=INVALID,.data.asInt=ERR_UNRESOLVED_MACRO};
 			case UNDEF:;
 				Mapable prev=mapPut(macroMap,get.value.asMacro.actions[i].data.asString,
@@ -505,7 +508,13 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 			}
 		}
 		while(rem>0){
-			if(state==READ_INCLUDE_MULTIWORD){
+			if(state==READ_COMMENT){
+				if(off<=i-1&&buffer[i-1]=='_'&&buffer[i]=='#'){
+					prev=0;//clear buffered characters
+					off=i+1;
+					state=prevState;
+				}
+			}else if(state==READ_INCLUDE_MULTIWORD){
 				if(buffer[i]=='"'){
 					String t=getSegment(&prev,&s,&sCap,buffer,i,off);
 					if(!t.chars){
@@ -529,9 +538,8 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 					//XXX handle comments independent of actions
 					switch(state){
 					case READ_COMMENT:
-						if(a.type==END){
-							state=prevState;
-						}
+					case READ_INCLUDE_MULTIWORD:
+						assert(0&&"unreachable");
 						break;
 					case READ_INCLUDE:
 						if(t.len>0){
@@ -556,9 +564,6 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 								}
 							}
 						}
-						break;
-					case READ_INCLUDE_MULTIWORD:
-						assert(0&&"unreachable");
 						break;
 					case READ_LABEL:
 					case READ_UNDEF:
@@ -658,10 +663,10 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 								goto errorCleanup;
 							}
 							break;
-						case END:
+						case END_DEF:
 							if(state==READ_MACRO_ACTION){
-								res=defineMacro(macroMap,macroName,&tmpMacro);
-								if(res){
+								if(defineMacro(macroMap,macroName,&tmpMacro)){
+									res=ERR_MACRO_REDEF;
 									unlinkMacro(&tmpMacro);//undef to prevent double free
 									goto errorCleanup;
 								}
@@ -754,7 +759,7 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 			case MACRO_START://unfinished macro
 				res=ERR_UNFINISHED_MACRO;
 				goto errorCleanup;
-			case END://unexpected end
+			case END_DEF://unexpected end
 				res=ERR_UNEXPECTED_END;
 				goto errorCleanup;
 			case INVALID:
@@ -783,18 +788,18 @@ int readFile(FILE* file,Program* prog,HashMap* macroMap,String localDir,int dept
 			}
 			break;
 		case READ_COMMENT:
-			if(a.type!=END){
+			if(prev<2||s[prev-1]!='#'||s[prev-2]!='_'){
 				res=ERR_UNFINISHED_COMMENT;
 				goto errorCleanup;
 			}
 			break;
 		case READ_MACRO_ACTION:
-			if(a.type!=END){
+			if(a.type!=END_DEF){
 				res=ERR_UNFINISHED_MACRO;
 				goto errorCleanup;
 			}
-			res=defineMacro(macroMap,macroName,&tmpMacro);
-			if(res){
+			if(defineMacro(macroMap,macroName,&tmpMacro)){
+				res=ERR_MACRO_REDEF;
 				unlinkMacro(&tmpMacro);//undef to prevent double free
 				goto  errorCleanup;
 			}
@@ -920,7 +925,7 @@ const char* typeToStr(ActionType t){
 		case LABEL_DEF:return "LABEL_DEF";
 		case LABEL:return "LABEL";
 		case MACRO_START:return "MACRO_START";
-		case END:return "END";
+		case END_DEF:return "END";
 	}
 	assert(false&&"invalid value for ActionType");
 	return NULL;
@@ -982,7 +987,7 @@ int runProgram(Program prog,ProgState* state){
 			case LABEL_DEF:
 			case UNDEF:
 			case MACRO_START:
-			case END:
+			case END_DEF:
 				return ERR_UNRESOLVED_MACRO;//unresolved macro/label (un)definition
 			case FLIP://flip lowest bit
 				state->regA^=1;
@@ -1079,12 +1084,18 @@ int main(int argc,char** argv) {
     case ERR_UNRESOLVED_LABEL:
 		fputs("Unresolved Label\n",stderr);
 		return EXIT_FAILURE;
+    case ERR_MACRO_REDEF:
+		fputs("Macro redefinition\n",stderr);
+		return EXIT_FAILURE;
 	case NO_ERR:
 		res=freeHashMap(macroMap,&freeMapable);
 		if(res){
 			fputs("Unresolved Label\n",stderr);
 			return EXIT_FAILURE;
 		}
+		break;
+	default:
+		assert(0&&"unreachable");
 	}
 	printf("compiled: %"PRIu64" actions \n",(uint64_t)prog.len);
 	ProgState initState={

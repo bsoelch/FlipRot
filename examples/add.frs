@@ -1,3 +1,5 @@
+#_ addition programm relying only on macro expansion_#
+
 #def set
 #undef set.jump
 swap
@@ -7,7 +9,7 @@ jumpif
 flip
 #label set.jump
 #undef set.jump
-#end
+#enddef
 
 #def clear
 #undef clear.jump
@@ -18,12 +20,12 @@ clear.jump
 swap
 jumpif 
 #undef clear.jump
-#end
+#enddef
 
-#def add.arg0 0 #end
-#def add.arg1 1 #end
-#def add.res 2 #end
-#def tmp 3 #end
+#def add.arg0 0 #enddef
+#def add.arg1 1 #enddef
+#def add.res 2 #enddef
+#def tmp 3 #enddef
 
 #def add
 0
@@ -45,7 +47,7 @@ add.addBit add.addBit add.addBit add.addBit
 add.addBit add.addBit add.addBit add.addBit 
 #undef add.arg0
 #undef add.arg1
-#end
+#enddef
 
 #def add.addBit 
 
@@ -62,13 +64,13 @@ swap
 add.addBit.carry 
 swap
 jumpif 
-#__ carry==0 #end
+#_ carry==0 _#
 swap
 add.addBit.arg0 
 swap
 add.arg0 load
 jumpif 
-#__ carry==0,arg0==0 #end
+#_ carry==0,arg0==0 _#
 swap
 add.addBit.res01
 swap
@@ -80,7 +82,7 @@ swap
 1
 jumpif 
 #label add.addBit.arg0 
-#__ carry==0,arg0==1 #end
+#_ carry==0,arg0==1 _#
 swap
 add.addBit.res10
 swap
@@ -92,13 +94,13 @@ swap
 1
 jumpif 
 #label add.addBit.carry
-#__ carry!=0 #end
+#_ carry!=0 _#
 swap
 add.addBit.carry_arg0 
 swap
 add.arg0 load
 jumpif 
-#__ carry==1,arg0==0 #end
+#_ carry==1,arg0==0 _#
 swap
 add.addBit.res10
 swap
@@ -110,7 +112,7 @@ swap
 1
 jumpif 
 #label add.addBit.carry_arg0 
-#__ carry==1,arg0==1 #end
+#_ carry==1,arg0==1 _#
 swap
 add.addBit.res11
 swap
@@ -147,7 +149,7 @@ add.res load set rot
 swap add.res swap store
 tmp swap 1 store
 #label add.addBit.end
- #__ rotate arguments #end
+#_ rotate arguments _#
 add.arg0 load rot
 swap add.arg0 swap store
 add.arg1 load rot
@@ -161,9 +163,9 @@ tmp load
 #undef add.addBit.res10
 #undef add.addBit.res11
 #undef add.addBit.end
-#end
+#enddef
 
-#def LONG_IO 0xfffffffffffffffe #end
+#def LONG_IO 0xfffffffffffffffe #enddef
 
 add.arg0 swap 0x1234 store
 add.arg1 swap 0x5678 store 

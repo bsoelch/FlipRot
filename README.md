@@ -78,12 +78,12 @@ direct IO of numbers may be removed later
 ## Compile Time Macros
 
 ### Comments
-Comments start with '#__' and end with '#end'
+Comments start with '#_ ' and end with '_#'
 
 Example:
 ```
 code 
-#__ this is a comment #end more code
+#_ this is a comment _# more code
 ```
 
 ### lables
@@ -102,7 +102,7 @@ jumps to skip if the lowest bit of the main register is one,
 otherwise the main register is rotated until the lowest bit is a zero
 
 ### macros
-Macros start with '#def' followed by an identifer and end with '#end'
+Macros start with '#def' followed by an identifer and end with '#enddef'
 every usage of the macro-identifer is replaced with the code-block between the identifer and end
 
 It is currently not allowed to define macros within macros, label in macros can be defined, but have to be undefined (#undef)
@@ -111,7 +111,7 @@ to reuse the macro
 Example:
 
 ```
-#def rot2 rot rot #end
+#def rot2 rot rot #enddef
 4 rot2
 ```
 is reduced to 
