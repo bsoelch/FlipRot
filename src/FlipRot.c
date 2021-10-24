@@ -167,7 +167,7 @@ bool hasFileExtension(String str){
 		case ':':
 			return false;
 		}
-	}while(i>0);
+	}while(i>0);//dot at position 0 is indicator for local includes
 	return false;
 }
 
