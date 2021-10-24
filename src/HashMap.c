@@ -46,7 +46,7 @@ int freeMapable(Mapable e){
 		free(e.value.asPosArray.data);
 		return ERR_UNRESOLVED_LABEL;
 	case MAPABLE_MACRO:
-		freeMacro(e.value.asMacro);
+		freeMacro(&e.value.asMacro);
 		return NO_ERR;
 	}
 	assert(false&&"unreachable");
