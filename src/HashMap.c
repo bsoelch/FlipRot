@@ -36,25 +36,31 @@ HashMap* createHashMap(size_t capacity){
 	}
 	return map;
 }
-int freeMapable(Mapable e){
+
+//the return value is the address of the first unresolved label
+//or SIZE_MAX if there is none
+size_t freeMapable(Mapable e){
+	size_t res=SIZE_MAX;
 	switch(e.type){
 	case MAPABLE_NONE:
-		return NO_ERR;
+		return res;
 	case MAPABLE_POS:
-		return NO_ERR;
+		return res;
 	case MAPABLE_POSARRAY:
+		res=e.value.asPosArray.data[0];
 		free(e.value.asPosArray.data);
-		return ERR_UNRESOLVED_LABEL;
+		return res;
 	case MAPABLE_MACRO:
 		freeMacro(&e.value.asMacro);
-		return NO_ERR;
+		return res;
 	}
 	assert(false&&"unreachable");
-	return ERR_MEM;
+	return res;
 }
-//the return value is the bitwise or of the return-values of freeMapable
-int freeHashMap(HashMap* map,int(*freeMapable)(Mapable)){
-	int ret=0;
+//the return value is the address of the first unresolved label
+//or SIZE_MAX if there is none
+size_t freeHashMap(HashMap* map,size_t(*freeMapable)(Mapable)){
+	size_t ret=SIZE_MAX;
 	if(map){
 		MapNode* node;
 		MapNode* tmp;
@@ -63,7 +69,7 @@ int freeHashMap(HashMap* map,int(*freeMapable)(Mapable)){
 			while(node){
 				tmp=node;
 				if(freeMapable){
-					ret|=freeMapable(node->data);
+					ret=ret<SIZE_MAX?ret:freeMapable(node->data);
 				}
 				free(node->key.chars);
 				node=node->next;

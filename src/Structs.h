@@ -36,16 +36,18 @@ ERR_UNRESOLVED_LABEL,
 ERR_MACRO_REDEF,
 }ErrorCode;
 
-typedef struct{
+typedef struct CodePosImpl CodePos;
+
+struct CodePosImpl{
 	String file;
 	size_t line;
 	size_t posInLine;
-}ErrorPos;
+	CodePos* at;
+};
 
 typedef struct{
 	ErrorCode errCode;
-	ErrorPos pos;
-
+	CodePos pos;
 }ErrorInfo;
 
 
@@ -74,6 +76,7 @@ typedef struct{
 		int64_t asInt;
 		String asString;
 	}data;
+	CodePos* at;
 } Action;
 
 typedef struct{

@@ -19,9 +19,9 @@ typedef struct MapImpl HashMap;
 
 HashMap* createHashMap(size_t capacity);
 
-int freeMapable(Mapable e);
+size_t freeMapable(Mapable e);
 //the return value is the bitwise or of the return-values of freeMapable
-int freeHashMap(HashMap* map,int(*freeMapable)(Mapable));
+size_t freeHashMap(HashMap* map,size_t(*freeMapable)(Mapable));
 
 
 /**sets the map entry for key to entry,
