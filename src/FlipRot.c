@@ -121,6 +121,7 @@ CodePos* createPos(CodePos pos,CodePos* prev){
 	}
 	return new;
 }
+//XXX error reporting on failure
 CodePos* makePosPtr(CodePos pos){
 	CodePos* new=malloc(sizeof(CodePos));
 	if(new){
@@ -129,11 +130,8 @@ CodePos* makePosPtr(CodePos pos){
 	return new;
 }
 
-//TODO consistent handling of CodePos chains
-
 Action loadAction(String name,CodePos pos){
 	Action ret={.type=INVALID,.data.asInt=0,.at=makePosPtr(pos)};
-	//XXX error if at==NULL
 	char* tail=name.chars+name.len;
 	long long ll=strtoull(name.chars,&tail,0);
 	if(tail==name.chars+name.len){
@@ -352,6 +350,11 @@ ActionOrError addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,CodePos 
 		.data.asString={.len=0,.chars=NULL},
 		.at=makePosPtr(pos)
 	};
+	if(!ret.as.action.at){
+		ret.isError=true;
+		ret.as.error.errCode=ERR_MEM;
+		ret.as.error.pos=pos;
+	}
 	return ret;
 }
 
@@ -456,6 +459,7 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 		Action a;
 		for(size_t i=0;i<get.value.asMacro.len;i++){
 			a=get.value.asMacro.actions[i];
+			//don't override data in a.at
 			a.at=createPos(*a.at,makePosPtr(pos));
 			switch(a.type){
 			case INVALID://invalid action
@@ -556,6 +560,11 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 			.data.asInt=0,
 			.at=makePosPtr(pos),
 		};
+		if(!ret.as.action.at){
+			ret.isError=true;
+			ret.as.error.errCode=ERR_MEM;
+			ret.as.error.pos=pos;
+		}
 		return ret;
 		break;
 	}
@@ -1076,6 +1085,11 @@ const char* typeToStr(ActionType t){
 	return NULL;
 }
 
+//TODO increase size of virtual memory
+// separate mem-space in pages of 2^20-2^24
+// statically include first and last page,
+//  all other pages are dynamically loaded when needed
+
 //reads a value from memory
 //is an error occurs err is set to 1 otherwise err is set to 0
 uint64_t memRead(ProgState* state,uint64_t* err){
@@ -1118,8 +1132,10 @@ uint64_t memWrite(ProgState* state){
 	return 1;
 }
 
+//TODO? compile program to C?
+
 int runProgram(Program prog,ProgState* state){
-	uint64_t tmp;
+	uint64_t tmp;//XXX report error positions
 	for(size_t ip=0;ip<prog.len;){
 		switch(prog.actions[ip].type){
 			case INVALID://NOP
