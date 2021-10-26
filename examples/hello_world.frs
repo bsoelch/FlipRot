@@ -1,13 +1,15 @@
 #include io
+#include ascii
 
-#def > WRITE_CHAR #enddef
-#def H 0x48 > #enddef
-#def E 0x45 > #enddef
-#def L 0x4C > #enddef
-#def O 0x4F > #enddef
-#def '' 0x20 > #enddef
-#def W 0x57 > #enddef
-#def R 0x52 > #enddef
-#def D 0x44 > #enddef
-
-H E L L O '' W O R L D
+'H' WRITE_CHAR
+'e' WRITE_CHAR
+'l' WRITE_CHAR
+'l' WRITE_CHAR
+'o' WRITE_CHAR
+'' WRITE_CHAR
+'W' WRITE_CHAR
+'o' WRITE_CHAR
+'r' WRITE_CHAR
+'l' WRITE_CHAR
+'d' WRITE_CHAR
+'!' WRITE_CHAR
