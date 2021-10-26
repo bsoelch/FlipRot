@@ -11,22 +11,31 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define LOW_MEM_SIZE               0x100000ULL
-#define HIGH_MEM_SIZE              0x100000ULL
-
-#define MEM_MASK_INVALID 0xffff000000000000ULL
-#define MEM_MASK_HIGH        0xfffffff00000ULL
-#define MEM_HIGH_START       0xfffffff00000ULL
-#define HIGH_ADDR_MASK       0x0000000fffffULL
-#define MEM_MASK_LOW         0xfffffff00000ULL
-#define MEM_LOW_START        0x000000000000ULL
-#define LOW_ADDR_MASK        0x0000000fffffULL
-//replace with read bytes
-#define CHAR_IO_ADDR     0xffffffffffffffffULL
-//LONG_IO only for debug purposes, may be removed later
-#define LONG_IO_ADDR     0xfffffffffffffffeULL
+#define STACK_MEM_SIZE             0x100000ULL
+#define HEAP_INIT_SIZE              0x10000ULL
+#define SYS_REG_COUNT                     4ULL
 
 //only use 48bits for mem-addresses
+#define MEM_MASK_INVALID 0xffff000000000000ULL
+#define MEM_MASK_SYS     0xfffffffffffffff4ULL
+#define MEM_SYS_CALL     0xffffffffffffffffULL
+#define SYS_ADDR_MASK    0x0000000000000003ULL
+#define MEM_MASK_STACK       0xfffffff00000ULL
+#define MEM_STACK_START      0xfffffff00000ULL
+#define STACK_ADDR_MASK      0x0000000fffffULL
+
+//System interaction calls
+#define CALL_RESIZE_HEAP  0
+#define CALL_READ  1
+#define CALL_WRITE 2
+
+//Typedefs with readable names for sys-registers
+#define REG_HEAP_MIN sysReg[1]
+#define REG_IO_FD sysReg[1]
+#define REG_IO_TARGET sysReg[2]
+#define REG_IO_COUNT sysReg[3]
+#define PTR_REG_IO_COUNT sysReg+3
+
 
 typedef struct{
 	size_t len;
@@ -39,7 +48,6 @@ NO_ERR=0,
 ERR_MEM,
 ERR_IO,
 ERR_FILE_NOT_FOUND,
-ERR_MAPABLE_TYPE,
 
 ERR_EXPANSION_OVERFLOW,
 ERR_UNRESOLVED_MACRO,
@@ -135,7 +143,11 @@ typedef struct{
 	uint64_t regB;
 
 	Heap heap;
-	uint64_t* highMem;
+	uint64_t* stackMem;
+	//registers of system calls,
+	//ordered in revere order sysReg[0] has the highest id
+	//sysReg[0] has the same id as MEM_SYS_CALL
+	uint64_t sysReg [SYS_REG_COUNT];
 }ProgState;
 
 typedef enum{

@@ -15,6 +15,7 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <locale.h>
+#include <io.h>
 
 #include "Structs.h"
 #include "HashMap.h"
@@ -379,8 +380,10 @@ bool addAction(Program* prog,Action a){
 			}
 			return true;
 		//remaining ops are not compressible
-		case INVALID:
 		case LOAD_INT:
+			//XXX better error message
+			return false;//two load-ints in sequence have no effect
+		case INVALID:
 		case LOAD:
 		case STORE:
 		case JUMPIF:
@@ -1085,42 +1088,40 @@ const char* typeToStr(ActionType t){
 	return NULL;
 }
 
-//TODO generalize IO:
-// max ADDR => OS Interaction address
-// write call-id => performs OS-interaction action
-// read reads result of last action
-// OS interactions:
-//    	readBytes
-//		writeBytes
-//      heapEnsureCap
-//		open file
-//		close file
-//		exit
-// ...
-// [CALL_ID] [CALL_REG1] .. [CALL_REG<N>]
-
-//TODO dynamic memory mapping
+uint64_t readWrapper(uint64_t fd,char* buffer,uint64_t* count){
+	ssize_t numRead=read(fd,buffer,*count);
+	if(numRead<0){
+		*count=0;
+		//XXX check read error codes
+		return 1;
+	}else{
+		*count=numRead;
+		return 0;
+	}
+}
+uint64_t writeWrapper(uint64_t fd,char* buffer,uint64_t* count){
+	ssize_t numRead=write(fd,buffer,*count);
+	if(numRead<0){
+		*count=0;
+		//XXX check read error codes
+		return 1;
+	}else{
+		*count=numRead;
+		return 0;
+	}
+}
 
 //reads a value from memory
 //is an error occurs err is set to 1 otherwise err is set to 0
 uint64_t memRead(ProgState* state,ErrorCode* err){
 	if((state->regA&MEM_MASK_INVALID)!=0){
-		if((state->regA)==LONG_IO_ADDR){
+		if((state->regA&MEM_MASK_SYS)==MEM_MASK_SYS){
 			*err=0;
-			//TODO read long
-			return 0;
-		}else if((state->regA)==CHAR_IO_ADDR){
-			*err=0;
-			unsigned char c=getchar();
-			if((c&0x80)==0){
-				return state->regA=c;
-			}
-			//TODO read UTF-8 char
-			return 0;
+			return state->sysReg[SYS_REG_COUNT-(state->regA&SYS_ADDR_MASK)-1];
 		}
-	}else if((state->regA&MEM_MASK_HIGH)==MEM_HIGH_START){
+	}else if((state->regA&MEM_MASK_STACK)==MEM_STACK_START){
 		*err=0;
-		return state->highMem[state->regA&HIGH_ADDR_MASK];
+		return state->stackMem[state->regA&STACK_ADDR_MASK];
 	}
 	return heapRead(state->heap,state->regA,err);
 }
@@ -1129,19 +1130,44 @@ uint64_t memRead(ProgState* state,ErrorCode* err){
 //is an error occurs the return value is 1 otherwise 0 is returned
 ErrorCode memWrite(ProgState* state){
 	if((state->regB&MEM_MASK_INVALID)!=0){
-		if(state->regB==LONG_IO_ADDR){
-			printf("%"PRIx64"\n",state->regA);
-			return 0;
-		}else if(state->regB==CHAR_IO_ADDR){
-			if(state->regA<0x80){
-				putchar(state->regA);
+		if(state->regB==MEM_SYS_CALL){
+			switch(state->regA){
+			case CALL_RESIZE_HEAP:
+				state->regA=heapEnsureCap(&state->heap,state->sysReg[1]);
+				break;
+			case CALL_READ:{
+				char* buffer=malloc(state->REG_IO_COUNT);
+				if(!buffer){
+					return ERR_MEM;
+				}
+				state->regA=readWrapper(state->REG_IO_FD,buffer,
+						state->PTR_REG_IO_COUNT);
+				//TODO copyData to heap
+				free(buffer);
+			}break;
+			case CALL_WRITE:{
+				char* buffer=malloc(state->REG_IO_COUNT);
+				if(!buffer){
+					return ERR_MEM;
+				}
+				//TODO getData from heap
+				state->regA=writeWrapper(state->REG_IO_FD,buffer,
+						state->PTR_REG_IO_COUNT);
+				free(buffer);
+			}break;
+			default:
+				state->regA=-1;//TODO errorCodes
+				break;
 			}
-			//TODO write UTF-8 char
-			return 0;
+			return NO_ERR;
+		}else if((state->regB&MEM_MASK_SYS)==MEM_MASK_SYS){
+			state->sysReg[SYS_REG_COUNT-(state->regB&SYS_ADDR_MASK)-1]=state->regA;
+			return NO_ERR;
 		}
-	}else if((state->regB&MEM_MASK_HIGH)==MEM_HIGH_START){
-		state->highMem[state->regB&HIGH_ADDR_MASK]=state->regA;
-		return 0;
+		return ERR_HEAP_ILLEGAL_ACCESS;
+	}else if((state->regB&MEM_MASK_STACK)==MEM_STACK_START){
+		state->stackMem[state->regB&STACK_ADDR_MASK]=state->regA;
+		return NO_ERR;
 	}
 	return heapWrite(state->heap,state->regB,state->regA);
 }
@@ -1154,6 +1180,7 @@ ErrorInfo runProgram(Program prog,ProgState* state){
 	for(size_t ip=0;ip<prog.len;){
 		switch(prog.actions[ip].type){
 			case INVALID://NOP
+				//FIXME complier returns unusually high amount of INVALID actions
 				ip++;
 				break;
 			case LABEL:
@@ -1268,10 +1295,14 @@ void printError(ErrorInfo err){
 	case ERR_MACRO_REDEF:
 		fputs("Macro redefinition\n",stderr);
 		break;
+	case ERR_HEAP_ILLEGAL_ACCESS:
+		fputs("Illegal Heap Access\n",stderr);
+		break;
+	case ERR_HEAP_OUT_OF_MEMORY:
+		fputs("Heap out of Memory\n",stderr);
+		break;
 	case NO_ERR:
 		return;
-	default:
-		assert(0&&"unreachable");
 	}
 	CodePos pos=err.pos;
 	while(1){
@@ -1329,10 +1360,11 @@ int main(int argc,char** argv) {
 	ProgState initState={
 			.regA=0,
 			.regB=0,
-			.highMem = malloc(HIGH_MEM_SIZE * sizeof(uint64_t)),
-			.heap    = createHeap(LOW_MEM_SIZE),
+			.stackMem = malloc(STACK_MEM_SIZE * sizeof(uint64_t)),
+			.heap    = createHeap(HEAP_INIT_SIZE),
+			.sysReg = {0},
 	};
-	if(!(initState.highMem&&initState.heap.sections)){
+	if(!(initState.stackMem&&initState.heap.sections)){
 		fputs("Out of memory",stderr);
 		return EXIT_FAILURE;
 	}

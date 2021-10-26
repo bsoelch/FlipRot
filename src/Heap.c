@@ -11,7 +11,7 @@
 //initial capacity of the sections array
 static const size_t INIT_CAP_HEAP=16;
 //minimal size of a heap section
-static const size_t MIN_SECTION_SIZE=0x400;
+static const size_t MIN_SECTION_SIZE=0x100;
 //maximal size of a heap section
 static const size_t MAX_SECTION_SIZE=0x1000000;
 
@@ -101,6 +101,10 @@ static ErrorCode createSection(Heap* heap, uint64_t size){
 /**updates that heap ensuring that the memory capacity is at least minSize
  * return ERR_HEAP_OUT_OF_MEMORY of growing the heap is not possible*/
 ErrorCode heapEnsureCap(Heap* heap, uint64_t minSize){
+	if(minSize>MEM_STACK_START){
+		//heap cannot grow up to stack
+		return ERR_HEAP_OUT_OF_MEMORY;
+	}
 	ErrorCode ret;
 	if(heap->len>0){
 		HeapSection last=heap->sections[heap->len-1];

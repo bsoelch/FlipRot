@@ -1,0 +1,50 @@
+#_ IO handling_#
+
+#_ skip code section_#
+#undef $$IO$$
+$$IO$$ swap 1 jumpif
+
+#include core
+#include stack
+
+#_ move to syscalls.frs when #ifndef is implemented_#
+
+#def SYS_REG_CALL  0xffffffffffffffff #enddef
+
+#def CALL_READ  1 #enddef
+#def CALL_WRITE 2 #enddef
+
+#_ Sys registers for IO_#
+#def SYS_REG_FD    0xfffffffffffffffe #enddef
+#def SYS_REG_DATA  0xfffffffffffffffd #enddef
+#def SYS_REG_COUNT 0xfffffffffffffffc #enddef
+
+#_ File descriptors for default streams_#
+#def STD_IN  0 #enddef
+#def STD_OUT 1 #enddef
+#def STD_ERR 2 #enddef
+
+#def sizeof(char) 1 #enddef
+#def asByteAddr <<2 <<1 #enddef
+
+
+#label $$IO$$.writeCharImpl
+tmp_ret swap store #_ save return address _#
+SYS_REG_DATA  swap tmp_val asByteAddr store #_ save val-pointer to SYS_REG_DATA _#
+SYS_REG_COUNT swap sizeof(char)       store
+SYS_REG_CALL  swap CALL_WRITE         store #_ call write call _#
+swap tmp_val swap store
+tmp_ret load swap 1 jumpif 
+#_ end of $$IO$$.writeCharImpl _#
+
+#def WRITE_CHAR 
+swap tmp_val swap store
+SYS_REG_FD swap STD_OUT store
+$$IO$$.writeCharImpl swap 1 jumpif
+tmp_val load
+#enddef
+
+
+#_ skip code section_#
+#label $$IO$$
+#undef $$IO$$

@@ -1,14 +1,5 @@
 #_ Library of elementar macros _#
 
-#def CHAR_IO 0xffffffffffffffff #enddef
-#def LONG_IO 0xfffffffffffffffe #enddef
-
-#def READ_LONG LONG_IO load #enddef
-#def WRITE_LONG swap LONG_IO swap store #enddef
-
-#def READ_CHAR CHAR_IO load #enddef
-#def WRITE_CHAR swap CHAR_IO swap store #enddef
-
 #_ rotation operations _#
 #def >>1  rot       #enddef
 #def >>2  >>1  >>1  #enddef
