@@ -1,6 +1,6 @@
-#include core
+#include io
 
-#def > store #enddef
+#def > WRITE_CHAR #enddef
 #def H 0x48 > #enddef
 #def E 0x45 > #enddef
 #def L 0x4C > #enddef
@@ -10,5 +10,4 @@
 #def R 0x52 > #enddef
 #def D 0x44 > #enddef
 
-CHAR_IO swap
 H E L L O '' W O R L D

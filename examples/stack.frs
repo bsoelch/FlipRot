@@ -1,6 +1,7 @@
 #_ stack demo _#
 #include core
 #include stack
+#_ TODO FIX IO_#
 
 stack_reset
 1 push

@@ -14,5 +14,4 @@ jumpif
 target swap
 1
 jumpif
-0xfffffffffffffffe swap #_ return point _#
-0x42 store
+#_ return point _#

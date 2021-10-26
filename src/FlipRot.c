@@ -1150,7 +1150,22 @@ ErrorCode memWrite(ProgState* state){
 				if(!buffer){
 					return ERR_MEM;
 				}
-				//TODO getData from heap
+				if(state->REG_IO_TARGET+state->REG_IO_COUNT>MEM_BYTE_SIZE){
+					return ERR_HEAP_ILLEGAL_ACCESS;
+				}
+				if(state->REG_IO_TARGET>=8*MEM_STACK_START){
+					memcpy(buffer,((char*)state->stackMem)+state->REG_IO_TARGET-(8*MEM_STACK_START)
+							,state->REG_IO_COUNT);
+
+				}else if(state->REG_IO_TARGET+state->REG_IO_COUNT>=8*MEM_STACK_START){
+					uint64_t off=(8*MEM_STACK_START)-state->REG_IO_TARGET;
+					memcpy(buffer+off,state->stackMem,state->REG_IO_COUNT-off);
+				}//no else
+				if(state->REG_IO_TARGET<8*MEM_STACK_START){
+					uint64_t count=(8*MEM_STACK_START)-state->REG_IO_TARGET;
+					count=count>state->REG_IO_COUNT?state->REG_IO_COUNT:count;
+					//TODO getData from heap
+				}
 				state->regA=writeWrapper(state->REG_IO_FD,buffer,
 						state->PTR_REG_IO_COUNT);
 				free(buffer);

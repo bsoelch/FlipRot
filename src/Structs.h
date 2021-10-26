@@ -11,6 +11,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+//TOTAL memory size in bytes
+#define MEM_BYTE_SIZE       0x8000000000000ULL
+
 #define STACK_MEM_SIZE             0x100000ULL
 #define HEAP_INIT_SIZE              0x10000ULL
 #define SYS_REG_COUNT                     4ULL
