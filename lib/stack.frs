@@ -8,33 +8,33 @@ _#
 
 #_ addresses for temporary values within macros/procedures, 
 these address may be overwritten by any macro _#
-#def tmp_ret 0xffffff #enddef
-#def tmp_loop    0xfffffe #enddef
+#def tmp_ret  0xffffffffffff #enddef
+#def tmp_loop 0xfffffffffffe #enddef
 #_ temporay value that is not modified by the push or pop _#
-#def tmp_val    0xfffffd #enddef
+#def tmp_val  0xfffffffffffd #enddef
 
 #_ addresses for immediate values 
 this addresses may be saved on/restored from the stack on procedure calls
 _#
-#def varC 0xfffffc #enddef
-#def varB 0xfffffb #enddef
-#def varA 0xfffffa #enddef
-#def var9 0xfffff9 #enddef
-#def var8 0xfffff8 #enddef
-#def var7 0xfffff7 #enddef
-#def var6 0xfffff6 #enddef
-#def var5 0xfffff5 #enddef
-#def var4 0xfffff4 #enddef
-#def var3 0xfffff3 #enddef
-#def var2 0xfffff2 #enddef
-#def var1 0xfffff1 #enddef
+#def varC 0xfffffffffffc #enddef
+#def varB 0xfffffffffffb #enddef
+#def varA 0xfffffffffffa #enddef
+#def var9 0xfffffffffff9 #enddef
+#def var8 0xfffffffffff8 #enddef
+#def var7 0xfffffffffff7 #enddef
+#def var6 0xfffffffffff6 #enddef
+#def var5 0xfffffffffff5 #enddef
+#def var4 0xfffffffffff4 #enddef
+#def var3 0xfffffffffff3 #enddef
+#def var2 0xfffffffffff2 #enddef
+#def var1 0xfffffffffff1 #enddef
 
 #_ points to address above the top of the stack _#
-#def stack_prt 0xfffff0 #enddef
+#def stack_prt 0xfffffffffff0 #enddef
 #_ resets the stack, 
 this macro should be used before the first call of push _#
 #def stack_reset
-stack_prt swap 0xffffef store
+stack_prt swap 0xffffffffffef store
 #enddef
 
 #_ skip code in file _#

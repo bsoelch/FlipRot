@@ -9,7 +9,24 @@
 #define STRUCTS_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
+#define LOW_MEM_SIZE               0x100000ULL
+#define HIGH_MEM_SIZE              0x100000ULL
+
+#define MEM_MASK_INVALID 0xffff000000000000ULL
+#define MEM_MASK_HIGH        0xfffffff00000ULL
+#define MEM_HIGH_START       0xfffffff00000ULL
+#define HIGH_ADDR_MASK       0x0000000fffffULL
+#define MEM_MASK_LOW         0xfffffff00000ULL
+#define MEM_LOW_START        0x000000000000ULL
+#define LOW_ADDR_MASK        0x0000000fffffULL
+//replace with read bytes
+#define CHAR_IO_ADDR     0xffffffffffffffffULL
+//LONG_IO only for debug purposes, may be removed later
+#define LONG_IO_ADDR     0xfffffffffffffffeULL
+
+//only use 48bits for mem-addresses
 
 typedef struct{
 	size_t len;
@@ -34,6 +51,9 @@ ERR_UNFINISHED_MACRO,
 ERR_UNFINISHED_COMMENT,
 ERR_UNRESOLVED_LABEL,
 ERR_MACRO_REDEF,
+
+ERR_HEAP_ILLEGAL_ACCESS,
+ERR_HEAP_OUT_OF_MEMORY,
 }ErrorCode;
 
 typedef struct CodePosImpl CodePos;
@@ -97,12 +117,25 @@ typedef struct{
 	size_t* data;
 }PosArray;
 
+//for information on Heap functionality see Heap.h
+typedef struct HeapSectionImpl HeapSection;
+struct HeapSectionImpl{
+	uint64_t start;
+	size_t len;
+	uint64_t* data;
+};
+typedef struct{
+	size_t cap;
+	size_t len;
+	HeapSection* sections;
+}Heap;
+
 typedef struct{
 	uint64_t regA;
 	uint64_t regB;
 
-	size_t memCap;
-	uint64_t* mem;
+	Heap heap;
+	uint64_t* highMem;
 }ProgState;
 
 typedef enum{

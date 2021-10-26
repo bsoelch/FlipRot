@@ -18,6 +18,7 @@
 
 #include "Structs.h"
 #include "HashMap.h"
+#include "Heap.h"
 
 static const int MAX_DEPTH=128;
 
@@ -29,12 +30,6 @@ static const int INIT_CAP_PROG=16;
 static const char* LIB_DIR_NAME = "lib/";
 static const char* DEFAULT_FILE_EXT = ".frs";//flipRot-script
 
-//should be large enough
-#define MEM_SIZE 0x1000000
-
-static const size_t CHAR_IO_ADDR=SIZE_MAX;
-//LONG_IO only for debug purposes, may be removed later
-static const size_t LONG_IO_ADDR=SIZE_MAX-1;
 
 typedef enum{
 	READ_ACTION,//read actions
@@ -129,6 +124,12 @@ CodePos* makePosPtr(CodePos pos){
 	}
 	return new;
 }
+static const CodePos NULL_POS={
+		.file.chars="NULL",
+		.file.len=4,
+		.line=0,
+		.posInLine=0,
+};
 
 Action loadAction(String name,CodePos pos){
 	Action ret={.type=INVALID,.data.asInt=0,.at=makePosPtr(pos)};
@@ -606,7 +607,6 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,String filePath,in
 			.pos.posInLine=0,
 			.pos.at=NULL,
 	};
-	//FIXME prevent overwriting of res
 	if(depth>MAX_DEPTH){
 		//exceeded maximum include depth
 		res.errCode=ERR_EXPANSION_OVERFLOW;
@@ -1085,56 +1085,71 @@ const char* typeToStr(ActionType t){
 	return NULL;
 }
 
-//TODO increase size of virtual memory
-// separate mem-space in pages of 2^20-2^24
-// statically include first and last page,
-//  all other pages are dynamically loaded when needed
+//TODO generalize IO:
+// max ADDR => OS Interaction address
+// write call-id => performs OS-interaction action
+// read reads result of last action
+// OS interactions:
+//    	readBytes
+//		writeBytes
+//      heapEnsureCap
+//		open file
+//		close file
+//		exit
+// ...
+// [CALL_ID] [CALL_REG1] .. [CALL_REG<N>]
+
+//TODO dynamic memory mapping
 
 //reads a value from memory
 //is an error occurs err is set to 1 otherwise err is set to 0
-uint64_t memRead(ProgState* state,uint64_t* err){
-	if(state->regA==LONG_IO_ADDR){
-		*err=0;
-		//TODO read long
-		return 0;
-	}else if(state->regA==CHAR_IO_ADDR){
-		*err=0;
-		unsigned char c=getchar();
-		if((c&0x80)==0){
-			return state->regA=c;
+uint64_t memRead(ProgState* state,ErrorCode* err){
+	if((state->regA&MEM_MASK_INVALID)!=0){
+		if((state->regA)==LONG_IO_ADDR){
+			*err=0;
+			//TODO read long
+			return 0;
+		}else if((state->regA)==CHAR_IO_ADDR){
+			*err=0;
+			unsigned char c=getchar();
+			if((c&0x80)==0){
+				return state->regA=c;
+			}
+			//TODO read UTF-8 char
+			return 0;
 		}
-		//TODO read UTF-8 char
-		return 0;
-	}else if(state->regA<MEM_SIZE){
+	}else if((state->regA&MEM_MASK_HIGH)==MEM_HIGH_START){
 		*err=0;
-		return state->mem[state->regA];
+		return state->highMem[state->regA&HIGH_ADDR_MASK];
 	}
-	*err=1;
-	return 0;
+	return heapRead(state->heap,state->regA,err);
 }
 
 //writes a value to memory
 //is an error occurs the return value is 1 otherwise 0 is returned
-uint64_t memWrite(ProgState* state){
-	if(state->regB==LONG_IO_ADDR){
-		printf("%"PRIx64"\n",state->regA);
-		return 0;
-	}else if(state->regB==CHAR_IO_ADDR){
-		if(state->regA<0x80){
-			putchar(state->regA);
+ErrorCode memWrite(ProgState* state){
+	if((state->regB&MEM_MASK_INVALID)!=0){
+		if(state->regB==LONG_IO_ADDR){
+			printf("%"PRIx64"\n",state->regA);
+			return 0;
+		}else if(state->regB==CHAR_IO_ADDR){
+			if(state->regA<0x80){
+				putchar(state->regA);
+			}
+			//TODO write UTF-8 char
+			return 0;
 		}
-		//TODO write UTF-8 char
-		return 0;
-	}else if(state->regB<MEM_SIZE){
-		state->mem[state->regB]=state->regA;
+	}else if((state->regB&MEM_MASK_HIGH)==MEM_HIGH_START){
+		state->highMem[state->regB&HIGH_ADDR_MASK]=state->regA;
 		return 0;
 	}
-	return 1;
+	return heapWrite(state->heap,state->regB,state->regA);
 }
 
 //TODO? compile program to C?
 
-int runProgram(Program prog,ProgState* state){
+ErrorInfo runProgram(Program prog,ProgState* state){
+	ErrorCode ioRes;
 	uint64_t tmp;//XXX report error positions
 	for(size_t ip=0;ip<prog.len;){
 		switch(prog.actions[ip].type){
@@ -1142,14 +1157,20 @@ int runProgram(Program prog,ProgState* state){
 				ip++;
 				break;
 			case LABEL:
-				return ERR_UNRESOLVED_LABEL;//unresolved label
+				return (ErrorInfo){
+					.errCode=ERR_UNRESOLVED_LABEL,
+					.pos=prog.actions[ip].at?*prog.actions[ip].at:NULL_POS,
+				};//unresolved label
 			case INCLUDE:
 			case COMMENT_START:
 			case LABEL_DEF:
 			case UNDEF:
 			case MACRO_START:
 			case MACRO_END:
-				return ERR_UNRESOLVED_MACRO;//unresolved macro/label (un)definition
+				return (ErrorInfo){
+					.errCode=ERR_UNRESOLVED_MACRO,
+					.pos=prog.actions[ip].at?*prog.actions[ip].at:NULL_POS,
+				};//unresolved macro/label (un)definition
 			case FLIP://flip lowest bit
 				state->regA^=1;
 				ip++;
@@ -1170,16 +1191,22 @@ int runProgram(Program prog,ProgState* state){
 				ip++;
 				break;
 			case LOAD:
-				state->regA=memRead(state,&tmp);
-				if(tmp!=0){
-					return tmp;
+				state->regA=memRead(state,&ioRes);
+				if(ioRes){
+					return (ErrorInfo){
+						.errCode=ioRes,
+						.pos=prog.actions[ip].at?*prog.actions[ip].at:NULL_POS,
+					};
 				}
 				ip++;
 				break;
 			case STORE:
-				tmp=memWrite(state);
-				if(tmp!=0){
-					return tmp;
+				ioRes=memWrite(state);
+				if(ioRes){
+					return (ErrorInfo){
+						.errCode=ioRes,
+						.pos=prog.actions[ip].at?*prog.actions[ip].at:NULL_POS,
+					};
 				}
 				ip++;
 				break;
@@ -1194,7 +1221,10 @@ int runProgram(Program prog,ProgState* state){
 				break;
 		}
 	}
-	return NO_ERR;
+	return (ErrorInfo){
+		.errCode=NO_ERR,
+		.pos={{0}},
+	};
 }
 
 void printError(ErrorInfo err){
@@ -1299,15 +1329,19 @@ int main(int argc,char** argv) {
 	ProgState initState={
 			.regA=0,
 			.regB=0,
-			.mem=malloc(MEM_SIZE*sizeof(uint64_t)),
-			.memCap=MEM_SIZE
+			.highMem = malloc(HIGH_MEM_SIZE * sizeof(uint64_t)),
+			.heap    = createHeap(LOW_MEM_SIZE),
 	};
-	if(!initState.mem){
+	if(!(initState.highMem&&initState.heap.sections)){
 		fputs("Out of memory",stderr);
 		return EXIT_FAILURE;
 	}
 	fflush(stdout);
-	int exitCode=runProgram(prog,&initState);
-	printf("\nexit value:%i",exitCode);
+	res=runProgram(prog,&initState);
+	if(res.errCode){
+		fprintf(stderr,"Error while executing Program\n");
+		printError(res);
+		return EXIT_FAILURE;
+	}
 	return EXIT_SUCCESS;
 }
