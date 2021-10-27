@@ -1,0 +1,145 @@
+#_ increment and decrement 
+Signature of inc/dec functions:
+Input: 
+ val1: value to increment
+ tmp_loop: number of bits (unary)
+Uses:
+ tmp_ret: return address
+Output:
+ val1: incremented number
+
+Signature of inc/dec macros:
+Input: 
+ main resister
+Uses:
+ val1, tmp_loop, tmp_ret
+Output:
+ main resister
+
+_#
+
+#_ skip code section_#
+#undef $$INC$$
+$$INC$$ swap 1 jumpif
+
+#include core
+#include stack
+
+#_ TODO handle tmp_loop == UINT64_MAX _#
+
+#_ increments the value in val1 _#
+#label $$INC$$.inc 
+#undef $$INC$$.inc.loop
+#undef $$INC$$.inc.break
+#undef $$INC$$.inc.reset
+tmp_ret swap store #_ save return address _#
+#label $$INC$$.inc.loop
+val1 swap val1 load flip store #_ flip lowest bit of val1 _#
+swap $$INC$$.inc.break swap
+jumpif
+swap val1 swap rot store
+tmp_loop swap tmp_loop load rot store
+swap $$INC$$.inc.loop swap
+jumpif #_ jump to loop if rotation count not yet reached _#
+swap $$INC$$.inc.reset swap 
+1 jumpif #_ jump to reset _#
+#label $$INC$$.inc.break
+val1 swap val1 load rot store
+tmp_loop swap tmp_loop load rot store
+swap $$INC$$.inc.break swap
+jumpif #_ jump to break if rotation count not yet reached _#
+swap $$INC$$.inc.reset swap 
+1 jumpif #_ jump to reset _#
+#label $$INC$$.inc.reset
+val1 swap val1 load rot store
+tmp_loop swap tmp_loop load rot store
+swap $$INC$$.inc.reset swap flip jumpif #_ rotate while tmp_loop[0] is 0 _#
+
+#undef $$INC$$.inc.loop
+#undef $$INC$$.inc.break
+#undef $$INC$$.inc.reset
+tmp_ret load swap #_ load return address _#
+1 jumpif
+#_ end of $$INC$$.inc _#
+
+
+#_ decrements the value in val1 _#
+#label $$INC$$.dec
+#undef $$INC$$.dec.loop1
+#undef $$INC$$.dec.break
+#undef $$INC$$.dec.loop2
+#undef $$INC$$.dec.reset
+tmp_ret swap store #_ save return address _#
+#label $$INC$$.dec.loop1
+stack_prt swap stack_prt load
+swap $$INC$$.dec.break swap
+jumpif
+swap stack_prt swap flip rot store #_ flip lowest bit of stack_prt _#
+tmp_loop swap tmp_loop load rot store
+swap $$INC$$.dec.loop1 swap 
+jumpif #_ jump to loop1 if rotation count not yet reached _#
+swap $$INC$$.dec.reset swap 
+1 jumpif #_ jump to reset _#
+#label $$INC$$.dec.break
+swap stack_prt swap flip store
+#label $$INC$$.dec.loop2
+stack_prt swap stack_prt load rot store
+tmp_loop swap tmp_loop load rot store
+swap $$INC$$.dec.loop2 swap 
+jumpif #_ jump to loop2 if rotation count not yet reached _#
+#label $$INC$$.dec.reset
+val1 swap val1 load rot store
+tmp_loop swap tmp_loop load rot store
+swap $$INC$$.dec.reset swap flip jumpif #_ rotate while tmp_loop[0] is 0 _#
+
+#undef $$INC$$.dec.loop1
+#undef $$INC$$.dec.break
+#undef $$INC$$.dec.loop2
+#undef $$INC$$.dec.reset
+tmp_ret load swap #_ load return address _#
+1 jumpif
+#_ end of $$INC$$.dec _#
+
+#def inc8 
+swap val1 swap store #_ store target in val1 _#
+tmp_loop swap 0xff store #_ unary 8 _#
+$$INC$$.inc swap 1 jumpif #_ perform operation _#
+val1 load #_ load result _#
+#enddef
+#def inc16 
+swap val1 swap store #_ store target in val1 _#
+tmp_loop swap 0xffff store #_ unary 8 _#
+$$INC$$.inc swap 1 jumpif #_ perform operation _#
+val1 load #_ load result _#
+#enddef
+#def inc32 
+swap val1 swap store #_ store target in val1 _#
+tmp_loop swap 0xffffffff store #_ unary 8 _#
+$$INC$$.inc swap 1 jumpif #_ perform operation _#
+val1 load #_ load result _#
+#enddef
+#_ TODO inc64 ($$INC$$.inc) work only with less than 64 bits _#
+
+#def dec8 
+swap val1 swap store #_ store target in val1 _#
+tmp_loop swap 0xff store #_ unary 8 _#
+$$INC$$.dec swap 1 jumpif #_ perform operation _#
+val1 load #_ load result _#
+#enddef
+#def dec6 
+swap val1 swap store #_ store target in val1 _#
+tmp_loop swap 0xffff store #_ unary 8 _#
+$$INC$$.dec swap 1 jumpif #_ perform operation _#
+val1 load #_ load result _#
+#enddef
+#def dec32 
+swap val1 swap store #_ store target in val1 _#
+tmp_loop swap 0xffffffff store #_ unary 8 _#
+$$INC$$.dec swap 1 jumpif #_ perform operation _#
+val1 load #_ load result _#
+#enddef
+#_ TODO dec64 ($$INC$$.dec) work only with less than 64 bits _#
+
+#_ skip code section_#
+#label $$INC$$
+#undef $$INC$$

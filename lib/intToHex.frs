@@ -1,0 +1,287 @@
+#_ Methods for converting an integer to a hex-string _#
+
+#_ skip code section_#
+#undef $$INTTOHEX$$
+$$INTTOHEX$$ swap 1 jumpif
+
+#include core
+#include stack
+#include inc
+
+#_ helper for toHex _#
+#label $$INTTOHEX$$.storeHexDigit
+tmp_ret swap store #_ store return address _#
+#undef $$INTTOHEX$$.storeHexDigit.1
+#undef $$INTTOHEX$$.storeHexDigit.01
+#undef $$INTTOHEX$$.storeHexDigit.11
+#undef $$INTTOHEX$$.storeHexDigit.001
+#undef $$INTTOHEX$$.storeHexDigit.101
+#undef $$INTTOHEX$$.storeHexDigit.011
+#undef $$INTTOHEX$$.storeHexDigit.111
+#undef $$INTTOHEX$$.storeHexDigit.0001
+#undef $$INTTOHEX$$.storeHexDigit.1001
+#undef $$INTTOHEX$$.storeHexDigit.0101
+#undef $$INTTOHEX$$.storeHexDigit.1101
+#undef $$INTTOHEX$$.storeHexDigit.0011
+#undef $$INTTOHEX$$.storeHexDigit.1011
+#undef $$INTTOHEX$$.storeHexDigit.0111
+#undef $$INTTOHEX$$.storeHexDigit.1111
+#undef $$INTTOHEX$$.storeHexDigit.end!0
+#undef $$INTTOHEX$$.storeHexDigit.inc?
+#undef $$INTTOHEX$$.storeHexDigit.end
+
+$$INTTOHEX$$.storeHexDigit.1 swap valD load jumpif
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.01 swap valD load jumpif
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.001 swap valD load jumpif
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.0001 swap valD load jumpif
+swap valD swap rot store
+#_ 0000 _#
+
+$$INTTOHEX$$.storeHexDigit.inc? swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.0001
+swap valD swap rot store
+#_ 0001 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.001
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.0011 swap valD load jumpif
+swap valD swap rot store
+#_ 0010 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.0011
+swap valD swap rot store
+#_ 0011 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.01
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.011 swap valD load jumpif
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.0101 swap valD load jumpif
+swap valD swap rot store
+#_ 0100 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.0101
+swap valD swap rot store
+#_ 0101 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.011
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.0111 swap valD load jumpif
+swap valD swap rot store
+#_ 0110 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.0111
+swap valD swap rot store
+#_ 0111 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.1
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.11 swap valD load jumpif
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.101 swap valD load jumpif
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.1001 swap valD load jumpif
+swap valD swap rot store
+#_ 1000 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.1001
+swap valD swap rot store
+#_ 1001 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.101
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.1011 swap valD load jumpif
+swap valD swap rot store
+#_ 1010 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.1011
+swap valD swap rot store
+#_ 1011 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.11
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.111 swap valD load jumpif
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.1101 swap valD load jumpif
+swap valD swap rot store
+#_ 1100 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.1101
+swap valD swap rot store
+#_ 1101 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.111
+swap valD swap rot store
+$$INTTOHEX$$.storeHexDigit.1111 swap valD load jumpif
+swap valD swap rot store
+#_ 1110 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.1111
+swap valD swap rot store
+#_ 1111 _#
+
+$$INTTOHEX$$.storeHexDigit.end!0 swap 1 jumpif
+
+#label $$INTTOHEX$$.storeHexDigit.end!0
+#_ at least one nonzero digit_#
+swap valA swap 1 store
+#label $$INTTOHEX$$.storeHexDigit.inc?
+$$INTTOHEX$$.storeHexDigit.end swap valA load flip jumpif
+val9 swap val9 load rot flip store
+#label $$INTTOHEX$$.storeHexDigit.end
+
+#undef $$INTTOHEX$$.storeHexDigit.1
+#undef $$INTTOHEX$$.storeHexDigit.01
+#undef $$INTTOHEX$$.storeHexDigit.11
+#undef $$INTTOHEX$$.storeHexDigit.001
+#undef $$INTTOHEX$$.storeHexDigit.101
+#undef $$INTTOHEX$$.storeHexDigit.011
+#undef $$INTTOHEX$$.storeHexDigit.111
+#undef $$INTTOHEX$$.storeHexDigit.0001
+#undef $$INTTOHEX$$.storeHexDigit.1001
+#undef $$INTTOHEX$$.storeHexDigit.0101
+#undef $$INTTOHEX$$.storeHexDigit.1101
+#undef $$INTTOHEX$$.storeHexDigit.0011
+#undef $$INTTOHEX$$.storeHexDigit.1011
+#undef $$INTTOHEX$$.storeHexDigit.0111
+#undef $$INTTOHEX$$.storeHexDigit.1111
+#undef $$INTTOHEX$$.storeHexDigit.end!0
+#undef $$INTTOHEX$$.storeHexDigit.inc?
+#undef $$INTTOHEX$$.storeHexDigit.end
+tmp_ret load swap 1 jumpif
+#_ end of $$INTTOHEX$$.storeHexDigit _#
+
+
+#_ convertes a number to a string in base 16 
+and stores the result in val1-val2 
+Input: 
+ valD: number to convert
+Output:
+ val1,val2: string representation
+Uses:
+ valD: input
+ tmp_loop: loop helper
+ tmp_ret: return address subroutine
+ val1: return value
+ val2: return value
+
+ val9: length
+ valA: length-Helper
+ valB: subroutine argument
+ valC: return address
+_#
+#label toHex
+valC swap store #_ store return address _#
+#undef toHex.loop1
+#undef toHex.break
+#undef toHex.getLen
+#undef toHex.end
+#undef toHex.unToBin
+
+valA swap 0 store 
+swap val9 swap 0 store #_ reset length _#
+val2 swap 0 store
+valB swap store #_ store target in valB_#
+tmp_loop swap 0x7fdfe store #_ unary 8, 0, unary 9 _#
+swap valD swap valD load >>4 store 
+#label toHex.loop
+swap valD swap valD load <<8 store 
+$$INTTOHEX$$.storeHexDigit swap 1 jumpif
+tmp_loop swap tmp_loop load rot store
+swap toHex.loop swap 
+jumpif
+tmp_loop swap tmp_loop load rot store
+swap toHex.break swap #_ end loop after 16 digits _#
+jumpif
+val1 swap 0 store #_ set target to val1 after 8 digits _#
+valB swap store #_ store target in valB_#
+tmp_loop swap tmp_loop load rot store
+swap toHex.loop swap 
+jumpif
+#label toHex.break
+swap valD swap valD load <<4 store #_ reset valD _#
+toHex.getLen swap val9 load jumpif 
+val9 swap 1 store #_ val9==0 -> length=1_#
+#label toHex.getLen
+#_ len!=0 _#
+<<8 <<4 <<2 <<1
+val1 load push #_ save val1 _#
+val1 swap 0 store #_ set counter to 0 _#
+tmp_loop swap 0x1f store
+#label toHex.unToBin
+val9 swap val9 load rot store
+$$INC$$.inc
+toHex.unToBin swap val9 load jumpif
+val9 swap val1 load store #_ move result to val9 _#
+val1 swap pop store #_ restore val1 _#
+#label toHex.end
+
+#undef toHex.unToBin
+#undef toHex.getLen
+#undef toHex.end
+#undef toHex.loop1
+#undef toHex.break
+valC load swap 1 jumpif
+#_ end of toHex _#
+
+#_ prints a number in base 16 
+Input: 
+ valD: number to convert
+Uses:
+ valD: input
+ tmp_loop: loop helper
+ tmp_ret: return address subroutine
+ val1: stringBuffer
+ val2: stringBuffer
+
+ val9: length
+ valA: length-Helper
+ valB: subroutine argument
+ valC: return address
+_#
+#label printHex
+swap push #_ push return address_#
+toHex swap 1 jumpif #_ convert number to hex _#
+SYS_REG_FD    swap STD_OUT store
+SYS_REG_DATA  swap val1 store
+SYS_REG_COUNT swap val9 store
+SYS_REG_CALL  swap CALL_WRITE store #_ TODO handle return value_#
+pop swap 1 jumpif #_ jump to return address_#
+#_ end of printHex _#
+
+
+#_ skip code section_#
+#label $$INTTOHEX$$
+#undef $$INTTOHEX$$

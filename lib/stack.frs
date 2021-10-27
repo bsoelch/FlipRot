@@ -10,12 +10,10 @@ _#
 these address may be overwritten by any macro _#
 #def tmp_ret  0xffffffffffff #enddef
 #def tmp_loop 0xfffffffffffe #enddef
-#_ temporay value that is not modified by the push or pop _#
-#def tmp_val  0xfffffffffffd #enddef
-
 #_ addresses for immediate values 
 this addresses may be saved on/restored from the stack on procedure calls
 _#
+#def varD 0xfffffffffffd #enddef
 #def varC 0xfffffffffffc #enddef
 #def varB 0xfffffffffffb #enddef
 #def varA 0xfffffffffffa #enddef
@@ -80,7 +78,7 @@ store
 #undef stack_prt_inc.reset
 tmp_ret load swap #_ load return address _#
 1 jumpif
-#_ end of stack_prt_int _#
+#_ end of stack_prt_inc _#
 
 #_ decrements the stack_prt, 
 	modifies tmp_loop, tmp_ret 
