@@ -71,19 +71,19 @@ tmp_ret load swap #_ load return address _#
 #undef $$inc$$.dec.reset
 tmp_ret swap store #_ save return address _#
 #label $$inc$$.dec.loop1
-stack_prt swap stack_prt load
+var1 swap var1 load
 swap $$inc$$.dec.break swap
 jumpif
-swap stack_prt swap flip rot store #_ flip lowest bit of stack_prt _#
+swap var1 swap flip rot store #_ flip lowest bit of var1 _#
 tmp_loop swap tmp_loop load rot store
 swap $$inc$$.dec.loop1 swap 
 jumpif #_ jump to loop1 if rotation count not yet reached _#
 swap $$inc$$.dec.reset swap 
 1 jumpif #_ jump to reset _#
 #label $$inc$$.dec.break
-swap stack_prt swap flip store
+swap var1 swap flip store
 #label $$inc$$.dec.loop2
-stack_prt swap stack_prt load rot store
+var1 swap var1 load rot store
 tmp_loop swap tmp_loop load rot store
 swap $$inc$$.dec.loop2 swap 
 jumpif #_ jump to loop2 if rotation count not yet reached _#

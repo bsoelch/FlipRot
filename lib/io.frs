@@ -8,15 +8,15 @@ $$io$$ swap 1 jumpif
 
 #_ move to syscalls.frs when #ifndef is implemented_#
 
-#def SYS_REG_CALL  0xffffffffffffffff #enddef
+#def SYS_REG_CALL  0xfffffffffffffff8 #enddef
 
 #def CALL_READ  1 #enddef
 #def CALL_WRITE 2 #enddef
 
 #_ Sys registers for IO_#
-#def SYS_REG_FD    0xfffffffffffffffe #enddef
-#def SYS_REG_DATA  0xfffffffffffffffd #enddef
-#def SYS_REG_COUNT 0xfffffffffffffffc #enddef
+#def SYS_REG_FD    0xfffffffffffffff0 #enddef
+#def SYS_REG_DATA  0xffffffffffffffe8 #enddef
+#def SYS_REG_COUNT 0xffffffffffffffe0 #enddef
 
 #_ File descriptors for default streams_#
 #def STD_IN  0 #enddef
@@ -24,14 +24,12 @@ $$io$$ swap 1 jumpif
 #def STD_ERR 2 #enddef
 
 #def sizeof(char) 1 #enddef
-#def asByteAddr <<2 <<1 #enddef
-
 
 #label $$io$$.writeCharImpl
 tmp_ret swap store #_ save return address _#
-SYS_REG_DATA  swap varD asByteAddr store #_ save var-pointer to SYS_REG_DATA _#
-SYS_REG_COUNT swap sizeof(char)       store
-SYS_REG_CALL  swap CALL_WRITE         store #_ call write call _#
+SYS_REG_DATA  swap varD         store #_ save var-pointer to SYS_REG_DATA _#
+SYS_REG_COUNT swap sizeof(char) store
+SYS_REG_CALL  swap CALL_WRITE   store #_ call write call _#
 swap varD swap store
 tmp_ret load swap 1 jumpif 
 #_ end of $$io$$.writeCharImpl _#

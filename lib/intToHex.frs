@@ -4,6 +4,7 @@
 #include stack
 #include inc
 #include asciiOut
+#include ascii
 
 #_ skip code section_#
 #ifndef $$intToHex$$
@@ -279,9 +280,9 @@ _#
 #label $$intToHex$$.printHex
 swap push #_ push return address_#
 toHex swap 1 jumpif #_ convert number to hex _#
-SYS_REG_FD    swap STD_OUT store
-SYS_REG_DATA  swap var1 asByteAddr store
-SYS_REG_COUNT swap var9 load store
+SYS_REG_FD    swap STD_OUT    store
+SYS_REG_DATA  swap var1       store
+SYS_REG_COUNT swap var9 load  store
 SYS_REG_CALL  swap CALL_WRITE store #_ TODO handle return varue_#
 pop swap 1 jumpif #_ jump to return address_#
 #_ end of $$intToHex$$.printHex _#
@@ -289,6 +290,11 @@ pop swap 1 jumpif #_ jump to return address_#
 #def printHex 
 swap varD swap store
 $$intToHex$$.printHex swap 1 jumpif 
+#enddef
+#def printlnHex 
+swap varD swap store
+$$intToHex$$.printHex swap 1 jumpif 
+'\n' WRITE_CHAR
 #enddef
 
 

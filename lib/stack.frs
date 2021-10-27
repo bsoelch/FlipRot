@@ -11,34 +11,35 @@ $$stack$$ swap 1 jumpif
 
 #_ addresses for temporary values within macros/procedures, 
 these address may be overwritten by any macro _#
-#def tmp_ret  0xffffffffffff #enddef
-#def tmp_loop 0xfffffffffffe #enddef
+#def tmp_ret  0xfffffffffff8 #enddef
+#def tmp_loop 0xfffffffffff0 #enddef
 #_ addresses for immediate values 
 this addresses may be saved on/restored from the stack on procedure calls
 _#
-#def varD 0xfffffffffffd #enddef
-#def varC 0xfffffffffffc #enddef
-#def varB 0xfffffffffffb #enddef
-#def varA 0xfffffffffffa #enddef
-#def var9 0xfffffffffff9 #enddef
-#def var8 0xfffffffffff8 #enddef
-#def var7 0xfffffffffff7 #enddef
-#def var6 0xfffffffffff6 #enddef
-#def var5 0xfffffffffff5 #enddef
-#def var4 0xfffffffffff4 #enddef
-#def var3 0xfffffffffff3 #enddef
-#def var2 0xfffffffffff2 #enddef
-#def var1 0xfffffffffff1 #enddef
+#def varD 0xffffffffffe8 #enddef
+#def varC 0xffffffffffe0 #enddef
+#def varB 0xffffffffffd8 #enddef
+#def varA 0xffffffffffd0 #enddef
+#def var9 0xffffffffffc8 #enddef
+#def var8 0xffffffffffc0 #enddef
+#def var7 0xffffffffffb8 #enddef
+#def var6 0xffffffffffb0 #enddef
+#def var5 0xffffffffffa8 #enddef
+#def var4 0xffffffffffa0 #enddef
+#def var3 0xffffffffff98 #enddef
+#def var2 0xffffffffff90 #enddef
+#def var1 0xffffffffff88 #enddef
+#def var0 0xffffffffff80 #enddef
 
 #_ points to address above the top of the stack _#
-#def stack_prt 0xfffffffffff0 #enddef
+#def stack_ptr 0xffffffffff78 #enddef
 #_ resets the stack, 
 this macro should be used before the first call of push _#
 #def stack_reset
-stack_prt swap 0xffffffffffef store
+stack_ptr swap 0xffffffffff70 store
 #enddef
 
-#_ increments the stack_prt
+#_ increments the stack_ptr
 	modifies tmp_loop, tmp_ret 
 _#
 #label $$stack$$.inc
@@ -46,31 +47,33 @@ _#
 #undef $$stack$$.inc.break
 #undef $$stack$$.inc.reset
 tmp_ret swap store #_ save return address _#
-#_ set tmp_loop (loop-count) to unary 20 _#
-tmp_loop swap 0xfffff store 
+#_ convert stack_ptr to block index _#
+stack_ptr swap stack_ptr load rot rot rot store 
+#_ set tmp_loop (loop-count) to unary 21 _#
+tmp_loop swap 0x1fffff store 
 #label $$stack$$.inc.loop
-stack_prt swap stack_prt load flip store #_ flip lowest bit of stack_prt _#
+stack_ptr swap stack_ptr load flip store #_ flip lowest bit of stack ptr _#
 swap $$stack$$.inc.break swap
 jumpif
-swap stack_prt swap rot store
+swap stack_ptr swap rot store
 tmp_loop swap tmp_loop load rot store
 swap $$stack$$.inc.loop swap
 jumpif #_ jump to loop if rotation count not yet reached _#
 swap $$stack$$.inc.reset swap 
 1 jumpif #_ jump to reset _#
 #label $$stack$$.inc.break
-stack_prt swap stack_prt load rot store
+stack_ptr swap stack_ptr load rot store
 tmp_loop swap tmp_loop load rot store
 swap $$stack$$.inc.break swap
 jumpif #_ jump to break if rotation count not yet reached _#
 swap $$stack$$.inc.reset swap 
 1 jumpif #_ jump to reset _#
 #label $$stack$$.inc.reset
-stack_prt swap stack_prt load
-#_ rotate by 64-20 _#
+stack_ptr swap stack_ptr load
+#_ rotate by 64-(21+3) _#
 rot rot rot rot rot rot rot rot rot rot rot rot rot rot rot rot 
 rot rot rot rot rot rot rot rot rot rot rot rot rot rot rot rot 
-rot rot rot rot rot rot rot rot rot rot rot rot   
+rot rot rot rot rot rot rot rot  
 store 
 #undef $$stack$$.inc.loop
 #undef $$stack$$.inc.break
@@ -79,7 +82,7 @@ tmp_ret load swap #_ load return address _#
 1 jumpif
 #_ end of $$stack$$.inc _#
 
-#_ decrements the stack_prt, 
+#_ decrements the stack_ptr, 
 	modifies tmp_loop, tmp_ret 
 _#
 #label $$stack$$.dec
@@ -88,31 +91,32 @@ _#
 #undef $$stack$$.dec.loop2
 #undef $$stack$$.dec.reset
 tmp_ret swap store #_ save return address _#
-#_ set tmp_loop (loop-count) to unary 20 _#
-tmp_loop swap 0xfffff store 
+stack_ptr swap stack_ptr load rot rot rot store #_ convert index to block index_#
+#_ set tmp_loop (loop-count) to unary 21 _#
+tmp_loop swap 0x1fffff store 
 #label $$stack$$.dec.loop1
-stack_prt swap stack_prt load
+stack_ptr swap stack_ptr load
 swap $$stack$$.dec.break swap
 jumpif
-swap stack_prt swap flip rot store #_ flip lowest bit of stack_prt _#
+swap stack_ptr swap flip rot store #_ flip lowest bit of stack_ptr _#
 tmp_loop swap tmp_loop load rot store
 swap $$stack$$.dec.loop1 swap 
 jumpif #_ jump to loop1 if rotation count not yet reached _#
 swap $$stack$$.dec.reset swap 
 1 jumpif #_ jump to reset _#
 #label $$stack$$.dec.break
-swap stack_prt swap flip store
+swap stack_ptr swap flip store
 #label $$stack$$.dec.loop2
-stack_prt swap stack_prt load rot store
+stack_ptr swap stack_ptr load rot store
 tmp_loop swap tmp_loop load rot store
 swap $$stack$$.dec.loop2 swap 
 jumpif #_ jump to loop2 if rotation count not yet reached _#
 #label $$stack$$.dec.reset
-stack_prt swap stack_prt load
-#_ rotate by 64-20 _#
+stack_ptr swap stack_ptr load
+#_ rotate by 64-(21+3) _#
 rot rot rot rot rot rot rot rot rot rot rot rot rot rot rot rot 
 rot rot rot rot rot rot rot rot rot rot rot rot rot rot rot rot 
-rot rot rot rot rot rot rot rot rot rot rot rot   
+rot rot rot rot rot rot rot rot    
 store 
 #undef $$stack$$.dec.loop1
 #undef $$stack$$.dec.break
@@ -131,7 +135,7 @@ stack_reset
 #endif
 _#
 
-swap stack_prt load swap store #_ store value at top of stack _#
+swap stack_ptr load swap store #_ store value at top of stack _#
 $$stack$$.dec swap 
 1 jumpif #_ decrement the stack pointer _#
 #enddef
@@ -145,7 +149,7 @@ stack_reset
 _#
 $$stack$$.inc swap 
 1 jumpif #_ increment the stack_pointer _#
-stack_prt load load #_ load value at top of stack _#
+stack_ptr load load #_ load value at top of stack _#
 #enddef
 
 #_ label for skipping code in file _#

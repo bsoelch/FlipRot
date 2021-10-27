@@ -1,15 +1,11 @@
+#include core
 #include io
-#include ascii
+#include asciiOut
 
-'H' WRITE_CHAR
-'e' WRITE_CHAR
-'l' WRITE_CHAR
-'l' WRITE_CHAR
-'o' WRITE_CHAR
-'' WRITE_CHAR
-'W' WRITE_CHAR
-'o' WRITE_CHAR
-'r' WRITE_CHAR
-'l' WRITE_CHAR
-'d' WRITE_CHAR
-'!' WRITE_CHAR
+var1 swap 0 'H'< 'e'< 'l'< 'l'< 'o'< ''< 'W'< 'o'< store
+var2 swap 0 'r'< 'l'< 'd'< '!'< <<32 store
+
+SYS_REG_FD    swap 1          store #_ stdout _#
+SYS_REG_DATA  swap var1       store #_ start of data_#
+SYS_REG_COUNT swap 12         store #_ number of caracters _#
+SYS_REG_CALL  swap CALL_WRITE store #_ write data _#

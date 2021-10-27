@@ -398,6 +398,7 @@ ErrorCode addAction(Program* prog,Action a){
 				return NO_ERR;
 			//remaining ops are not compressible
 			case LOAD_INT:
+				//XXX flag: IGNORE_ERR_INT_OVERWRITE
 				return ERR_INT_OVERWRITE;//two load-ints in sequence have no effect
 			case INVALID:
 			case LOAD:
@@ -422,6 +423,7 @@ ErrorCode addAction(Program* prog,Action a){
 			case ROT:
 			case LOAD:
 			case LOAD_INT://load-int overwrites changed value
+				//XXX flag: IGNORE_ERR_INT_OVERWRITE
 				return ERR_INT_OVERWRITE;
 			default:
 				break;
@@ -1323,11 +1325,16 @@ uint64_t memRead(ProgState* state,ErrorCode* err){
 	if((state->regA&MEM_MASK_INVALID)!=0){
 		if((state->regA&MEM_MASK_SYS)==MEM_MASK_SYS){
 			*err=0;
-			return state->sysReg[SYS_REG_COUNT-(state->regA&SYS_ADDR_MASK)-1];
+			return state->sysReg[SYS_REG_COUNT-
+								 (state->regA&SYS_ADDR_MASK)/sizeof(uint64_t)-1];
 		}
 	}else if((state->regA&MEM_MASK_STACK)==MEM_STACK_START){
+		if(state->regA+sizeof(uint64_t)>MEM_SIZE){
+			*err=ERR_HEAP_ILLEGAL_ACCESS;
+			return 0;
+		}
 		*err=0;
-		return state->stackMem[state->regA&STACK_ADDR_MASK];
+		return *((uint64_t*)(state->stackMem+(state->regA&STACK_ADDR_MASK)));
 	}
 	return heapRead(state->heap,state->regA,err);
 }
@@ -1356,20 +1363,18 @@ ErrorCode memWrite(ProgState* state){
 				if(!buffer){
 					return ERR_MEM;
 				}
-				if(state->REG_IO_TARGET+state->REG_IO_COUNT>MEM_BYTE_SIZE){
+				if(state->REG_IO_TARGET+state->REG_IO_COUNT>MEM_SIZE){
 					return ERR_HEAP_ILLEGAL_ACCESS;
 				}
-				//TODO blocks should be interpreted as little endian
-				//independent of system endianess
-				if(state->REG_IO_TARGET>=8*MEM_STACK_START){
-					memcpy(buffer,((char*)state->stackMem)+state->REG_IO_TARGET-(8*MEM_STACK_START)
+				if(state->REG_IO_TARGET>=MEM_STACK_START){
+					memcpy(buffer,((char*)state->stackMem)+state->REG_IO_TARGET-MEM_STACK_START
 							,state->REG_IO_COUNT);
-				}else if(state->REG_IO_TARGET+state->REG_IO_COUNT>=8*MEM_STACK_START){
-					uint64_t off=(8*MEM_STACK_START)-state->REG_IO_TARGET;
+				}else if(state->REG_IO_TARGET+state->REG_IO_COUNT>=MEM_STACK_START){
+					uint64_t off=MEM_STACK_START-state->REG_IO_TARGET;
 					memcpy(buffer+off,state->stackMem,state->REG_IO_COUNT-off);
 				}//no else
-				if(state->REG_IO_TARGET<8*MEM_STACK_START){
-					uint64_t count=(8*MEM_STACK_START)-state->REG_IO_TARGET;
+				if(state->REG_IO_TARGET<MEM_STACK_START){
+					uint64_t count=MEM_STACK_START-state->REG_IO_TARGET;
 					count=count>state->REG_IO_COUNT?state->REG_IO_COUNT:count;
 					//TODO getData from heap
 				}
@@ -1383,12 +1388,16 @@ ErrorCode memWrite(ProgState* state){
 			}
 			return NO_ERR;
 		}else if((state->regB&MEM_MASK_SYS)==MEM_MASK_SYS){
-			state->sysReg[SYS_REG_COUNT-(state->regB&SYS_ADDR_MASK)-1]=state->regA;
+			state->sysReg[SYS_REG_COUNT-
+						  (state->regB&SYS_ADDR_MASK)/sizeof(uint64_t)-1]=state->regA;
 			return NO_ERR;
 		}
 		return ERR_HEAP_ILLEGAL_ACCESS;
 	}else if((state->regB&MEM_MASK_STACK)==MEM_STACK_START){
-		state->stackMem[state->regB&STACK_ADDR_MASK]=state->regA;
+		if(state->regB+sizeof(uint64_t)>MEM_SIZE){
+			return ERR_HEAP_ILLEGAL_ACCESS;
+		}
+		*((uint64_t*)(state->stackMem+(state->regB&STACK_ADDR_MASK)))=state->regA;
 		return NO_ERR;
 	}
 	return heapWrite(state->heap,state->regB,state->regA);
