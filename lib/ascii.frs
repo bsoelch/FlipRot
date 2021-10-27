@@ -1,13 +1,15 @@
 #_ collection of char-codes of ascii characters _#
+#ifndef $$ascii$$
+#def $$ascii$$ #enddef
 
 #def '\0'    0x0 #enddef
 
-#def ascii1  0x1 #enddef
-#def ascii2  0x2 #enddef
-#def ascii3  0x3 #enddef
-#def ascii4  0x4 #enddef
-#def ascii5  0x5 #enddef
-#def ascii6  0x6 #enddef
+#def '\01'    0x1 #enddef
+#def '\02'    0x2 #enddef
+#def '\03'    0x3 #enddef
+#def '\04'    0x4 #enddef
+#def '\05'    0x5 #enddef
+#def '\06'    0x6 #enddef
 
 #def '\a'    0x7 #enddef
 #def '\b'    0x8 #enddef
@@ -17,26 +19,26 @@
 #def '\f'    0xc #enddef
 #def '\r'    0xd #enddef
  
-#def asciiE  0xe #enddef
-#def asciiF  0xf #enddef
-#def ascii10 0x10 #enddef
-#def ascii11 0x11 #enddef
-#def ascii12 0x12 #enddef
-#def ascii13 0x13 #enddef
-#def ascii14 0x14 #enddef
-#def ascii15 0x15 #enddef
-#def ascii16 0x16 #enddef
-#def ascii17 0x17 #enddef
-#def ascii18 0x18 #enddef
-#def ascii19 0x19 #enddef
-#def ascii1A 0x1a #enddef
+#def '\0E'    0xe #enddef
+#def '\0F'    0xf #enddef
+#def '\10'   0x10 #enddef
+#def '\11'   0x11 #enddef
+#def '\12'   0x12 #enddef
+#def '\13'   0x13 #enddef
+#def '\14'   0x14 #enddef
+#def '\15'   0x15 #enddef
+#def '\16'   0x16 #enddef
+#def '\17'   0x17 #enddef
+#def '\18'   0x18 #enddef
+#def '\19'   0x19 #enddef
+#def '\1A'   0x1a #enddef
 
 #def '\e'    0x1b #enddef
 
-#def ascii1C 0x1c #enddef
-#def ascii1D 0x1d #enddef
-#def ascii1E 0x1e #enddef
-#def ascii1F 0x1f #enddef
+#def '\1C' 0x1c #enddef
+#def '\1D' 0x1d #enddef
+#def '\1E' 0x1e #enddef
+#def '\1F' 0x1f #enddef
 
 #_ Identifers cannot contain whitespaces_#
 #def ''      0x20 #enddef
@@ -141,4 +143,5 @@
 #def '}'     0x7d #enddef
 #def '~'     0x7e #enddef
 
-#def ascii7F 0x7f #enddef
+#def '\7F'   0x7f #enddef
+#endif

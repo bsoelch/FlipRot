@@ -1,0 +1,133 @@
+#_ collection of char-codes of ascii characters _#
+#ifndef $$asciiOut$$
+#def $$asciiOut$$ #enddef
+#def '\00'<      rot      rot      rot      rot      rot      rot      rot      rot #enddef
+#def '\01'< flip rot      rot      rot      rot      rot      rot      rot      rot #enddef
+#def '\02'<      rot flip rot      rot      rot      rot      rot      rot      rot #enddef
+#def '\03'< flip rot flip rot      rot      rot      rot      rot      rot      rot #enddef
+#def '\04'<      rot      rot flip rot      rot      rot      rot      rot      rot #enddef
+#def '\05'< flip rot      rot flip rot      rot      rot      rot      rot      rot #enddef
+#def '\06'<      rot flip rot flip rot      rot      rot      rot      rot      rot #enddef
+#def '\a'<  flip rot flip rot flip rot      rot      rot      rot      rot      rot #enddef
+#def '\b'<       rot      rot      rot flip rot      rot      rot      rot      rot #enddef
+#def '\t'<  flip rot      rot      rot flip rot      rot      rot      rot      rot #enddef
+#def '\n'<       rot flip rot      rot flip rot      rot      rot      rot      rot #enddef
+#def '\v'<  flip rot flip rot      rot flip rot      rot      rot      rot      rot #enddef
+#def '\f'<       rot      rot flip rot flip rot      rot      rot      rot      rot #enddef
+#def '\r'<  flip rot      rot flip rot flip rot      rot      rot      rot      rot #enddef
+#def '\0E'<      rot flip rot flip rot flip rot      rot      rot      rot      rot #enddef
+#def '\0F'< flip rot flip rot flip rot flip rot      rot      rot      rot      rot #enddef
+#def '\10'<      rot      rot      rot      rot flip rot      rot      rot      rot #enddef
+#def '\11'< flip rot      rot      rot      rot flip rot      rot      rot      rot #enddef
+#def '\12'<      rot flip rot      rot      rot flip rot      rot      rot      rot #enddef
+#def '\13'< flip rot flip rot      rot      rot flip rot      rot      rot      rot #enddef
+#def '\14'<      rot      rot flip rot      rot flip rot      rot      rot      rot #enddef
+#def '\15'< flip rot      rot flip rot      rot flip rot      rot      rot      rot #enddef
+#def '\16'<      rot flip rot flip rot      rot flip rot      rot      rot      rot #enddef
+#def '\17'< flip rot flip rot flip rot      rot flip rot      rot      rot      rot #enddef
+#def '\18'<      rot      rot      rot flip rot flip rot      rot      rot      rot #enddef
+#def '\19'< flip rot      rot      rot flip rot flip rot      rot      rot      rot #enddef
+#def '\1A'<      rot flip rot      rot flip rot flip rot      rot      rot      rot #enddef
+#def '\e'<  flip rot flip rot      rot flip rot flip rot      rot      rot      rot #enddef
+#def '\1C'<      rot      rot flip rot flip rot flip rot      rot      rot      rot #enddef
+#def '\1D'< flip rot      rot flip rot flip rot flip rot      rot      rot      rot #enddef
+#def '\1E'<      rot flip rot flip rot flip rot flip rot      rot      rot      rot #enddef
+#def '\1F'< flip rot flip rot flip rot flip rot flip rot      rot      rot      rot #enddef
+#def ''<         rot      rot      rot      rot      rot flip rot      rot      rot #enddef
+#def '!'<   flip rot      rot      rot      rot      rot flip rot      rot      rot #enddef
+#def '"'<        rot flip rot      rot      rot      rot flip rot      rot      rot #enddef
+#def '#'<   flip rot flip rot      rot      rot      rot flip rot      rot      rot #enddef
+#def '$'<        rot      rot flip rot      rot      rot flip rot      rot      rot #enddef
+#def '%'<   flip rot      rot flip rot      rot      rot flip rot      rot      rot #enddef
+#def '&'<        rot flip rot flip rot      rot      rot flip rot      rot      rot #enddef
+#def '''<   flip rot flip rot flip rot      rot      rot flip rot      rot      rot #enddef
+#def '('<        rot      rot      rot flip rot      rot flip rot      rot      rot #enddef
+#def ')'<   flip rot      rot      rot flip rot      rot flip rot      rot      rot #enddef
+#def '*'<        rot flip rot      rot flip rot      rot flip rot      rot      rot #enddef
+#def '+'<   flip rot flip rot      rot flip rot      rot flip rot      rot      rot #enddef
+#def ','<        rot      rot flip rot flip rot      rot flip rot      rot      rot #enddef
+#def '-'<   flip rot      rot flip rot flip rot      rot flip rot      rot      rot #enddef
+#def '.'<        rot flip rot flip rot flip rot      rot flip rot      rot      rot #enddef
+#def '/'<   flip rot flip rot flip rot flip rot      rot flip rot      rot      rot #enddef
+#def '0'<        rot      rot      rot      rot flip rot flip rot      rot      rot #enddef
+#def '1'<   flip rot      rot      rot      rot flip rot flip rot      rot      rot #enddef
+#def '2'<        rot flip rot      rot      rot flip rot flip rot      rot      rot #enddef
+#def '3'<   flip rot flip rot      rot      rot flip rot flip rot      rot      rot #enddef
+#def '4'<        rot      rot flip rot      rot flip rot flip rot      rot      rot #enddef
+#def '5'<   flip rot      rot flip rot      rot flip rot flip rot      rot      rot #enddef
+#def '6'<        rot flip rot flip rot      rot flip rot flip rot      rot      rot #enddef
+#def '7'<   flip rot flip rot flip rot      rot flip rot flip rot      rot      rot #enddef
+#def '8'<        rot      rot      rot flip rot flip rot flip rot      rot      rot #enddef
+#def '9'<   flip rot      rot      rot flip rot flip rot flip rot      rot      rot #enddef
+#def ':'<        rot flip rot      rot flip rot flip rot flip rot      rot      rot #enddef
+#def ';'<   flip rot flip rot      rot flip rot flip rot flip rot      rot      rot #enddef
+#def '<'<        rot      rot flip rot flip rot flip rot flip rot      rot      rot #enddef
+#def '='<   flip rot      rot flip rot flip rot flip rot flip rot      rot      rot #enddef
+#def '>'<        rot flip rot flip rot flip rot flip rot flip rot      rot      rot #enddef
+#def '?'<   flip rot flip rot flip rot flip rot flip rot flip rot      rot      rot #enddef
+#def '@'<        rot      rot      rot      rot      rot      rot flip rot      rot #enddef
+#def 'A'<   flip rot      rot      rot      rot      rot      rot flip rot      rot #enddef
+#def 'B'<        rot flip rot      rot      rot      rot      rot flip rot      rot #enddef
+#def 'C'<   flip rot flip rot      rot      rot      rot      rot flip rot      rot #enddef
+#def 'D'<        rot      rot flip rot      rot      rot      rot flip rot      rot #enddef
+#def 'E'<   flip rot      rot flip rot      rot      rot      rot flip rot      rot #enddef
+#def 'F'<        rot flip rot flip rot      rot      rot      rot flip rot      rot #enddef
+#def 'G'<   flip rot flip rot flip rot      rot      rot      rot flip rot      rot #enddef
+#def 'H'<        rot      rot      rot flip rot      rot      rot flip rot      rot #enddef
+#def 'I'<   flip rot      rot      rot flip rot      rot      rot flip rot      rot #enddef
+#def 'J'<        rot flip rot      rot flip rot      rot      rot flip rot      rot #enddef
+#def 'K'<   flip rot flip rot      rot flip rot      rot      rot flip rot      rot #enddef
+#def 'L'<        rot      rot flip rot flip rot      rot      rot flip rot      rot #enddef
+#def 'M'<   flip rot      rot flip rot flip rot      rot      rot flip rot      rot #enddef
+#def 'N'<        rot flip rot flip rot flip rot      rot      rot flip rot      rot #enddef
+#def 'O'<   flip rot flip rot flip rot flip rot      rot      rot flip rot      rot #enddef
+#def 'P'<        rot      rot      rot      rot flip rot      rot flip rot      rot #enddef
+#def 'Q'<   flip rot      rot      rot      rot flip rot      rot flip rot      rot #enddef
+#def 'R'<        rot flip rot      rot      rot flip rot      rot flip rot      rot #enddef
+#def 'S'<   flip rot flip rot      rot      rot flip rot      rot flip rot      rot #enddef
+#def 'T'<        rot      rot flip rot      rot flip rot      rot flip rot      rot #enddef
+#def 'U'<   flip rot      rot flip rot      rot flip rot      rot flip rot      rot #enddef
+#def 'V'<        rot flip rot flip rot      rot flip rot      rot flip rot      rot #enddef
+#def 'W'<   flip rot flip rot flip rot      rot flip rot      rot flip rot      rot #enddef
+#def 'X'<        rot      rot      rot flip rot flip rot      rot flip rot      rot #enddef
+#def 'Y'<   flip rot      rot      rot flip rot flip rot      rot flip rot      rot #enddef
+#def 'Z'<        rot flip rot      rot flip rot flip rot      rot flip rot      rot #enddef
+#def '['<   flip rot flip rot      rot flip rot flip rot      rot flip rot      rot #enddef
+#def '\'<        rot      rot flip rot flip rot flip rot      rot flip rot      rot #enddef
+#def ']'<   flip rot      rot flip rot flip rot flip rot      rot flip rot      rot #enddef
+#def '^'<        rot flip rot flip rot flip rot flip rot      rot flip rot      rot #enddef
+#def '_'<   flip rot flip rot flip rot flip rot flip rot      rot flip rot      rot #enddef
+#def '`'<        rot      rot      rot      rot      rot flip rot flip rot      rot #enddef
+#def 'a'<   flip rot      rot      rot      rot      rot flip rot flip rot      rot #enddef
+#def 'b'<        rot flip rot      rot      rot      rot flip rot flip rot      rot #enddef
+#def 'c'<   flip rot flip rot      rot      rot      rot flip rot flip rot      rot #enddef
+#def 'd'<        rot      rot flip rot      rot      rot flip rot flip rot      rot #enddef
+#def 'e'<   flip rot      rot flip rot      rot      rot flip rot flip rot      rot #enddef
+#def 'f'<        rot flip rot flip rot      rot      rot flip rot flip rot      rot #enddef
+#def 'g'<   flip rot flip rot flip rot      rot      rot flip rot flip rot      rot #enddef
+#def 'h'<        rot      rot      rot flip rot      rot flip rot flip rot      rot #enddef
+#def 'i'<   flip rot      rot      rot flip rot      rot flip rot flip rot      rot #enddef
+#def 'j'<        rot flip rot      rot flip rot      rot flip rot flip rot      rot #enddef
+#def 'k'<   flip rot flip rot      rot flip rot      rot flip rot flip rot      rot #enddef
+#def 'l'<        rot      rot flip rot flip rot      rot flip rot flip rot      rot #enddef
+#def 'm'<   flip rot      rot flip rot flip rot      rot flip rot flip rot      rot #enddef
+#def 'n'<        rot flip rot flip rot flip rot      rot flip rot flip rot      rot #enddef
+#def 'o'<   flip rot flip rot flip rot flip rot      rot flip rot flip rot      rot #enddef
+#def 'p'<        rot      rot      rot      rot flip rot flip rot flip rot      rot #enddef
+#def 'q'<   flip rot      rot      rot      rot flip rot flip rot flip rot      rot #enddef
+#def 'r'<        rot flip rot      rot      rot flip rot flip rot flip rot      rot #enddef
+#def 's'<   flip rot flip rot      rot      rot flip rot flip rot flip rot      rot #enddef
+#def 't'<        rot      rot flip rot      rot flip rot flip rot flip rot      rot #enddef
+#def 'u'<   flip rot      rot flip rot      rot flip rot flip rot flip rot      rot #enddef
+#def 'v'<        rot flip rot flip rot      rot flip rot flip rot flip rot      rot #enddef
+#def 'w'<   flip rot flip rot flip rot      rot flip rot flip rot flip rot      rot #enddef
+#def 'x'<        rot      rot      rot flip rot flip rot flip rot flip rot      rot #enddef
+#def 'y'<   flip rot      rot      rot flip rot flip rot flip rot flip rot      rot #enddef
+#def 'z'<        rot flip rot      rot flip rot flip rot flip rot flip rot      rot #enddef
+#def '{'<   flip rot flip rot      rot flip rot flip rot flip rot flip rot      rot #enddef
+#def '|'<        rot      rot flip rot flip rot flip rot flip rot flip rot      rot #enddef
+#def '}'<   flip rot      rot flip rot flip rot flip rot flip rot flip rot      rot #enddef
+#def '~'<        rot flip rot flip rot flip rot flip rot flip rot flip rot      rot #enddef
+#def '\7F'< flip rot flip rot flip rot flip rot flip rot flip rot flip rot      rot #enddef
+
+#endif

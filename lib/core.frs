@@ -1,4 +1,6 @@
 #_ Library of elementar macros _#
+#ifndef $$core$$
+#def $$core$$ #enddef
 
 #_ rotation operations _#
 #def >>1  rot       #enddef
@@ -78,3 +80,4 @@ flip
 #_ only keep lower 8 bits _#
 #def (byte) >>8 clear32 >>32 clear16 >>16 clear8 >>8 #enddef
 
+#endif
