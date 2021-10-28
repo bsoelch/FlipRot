@@ -1,0 +1,124 @@
+#_ methods for comparing values _#
+#include core
+#include stack
+
+#ifndef $$logic$$
+$$logic$$ swap 1 jumpif #_ skip code _#
+
+#_ 
+Input:
+ var1, var2: values to compare
+Changes:
+ var0, tmp_ret, tmp_loop
+Output:
+ var0: bitwise logical and of var1 and var2 
+_#
+#label $$logic$$.and
+tmp_ret swap store #_ store return address _#
+var0 swap 0 store
+tmp_loop swap 0xfffffffffffffffe store
+#label and.loop
+and.endif swap var1 load flip jumpif
+var2 load flip jumpif
+#_ var1[i]=1,var2[i]=1 _#
+var0 swap var0 load flip store
+#label and.endif
+var0 swap var0 load rot store
+var1 swap var1 load rot store
+var2 swap var2 load rot store
+tmp_loop swap tmp_loop load rot store
+swap and.loop swap jumpif #_ run exactly 64 iterations _#
+tmp_ret load swap 1 jumpif
+#_ end of $$logic$$.and _#
+#def and 
+$$logic$$.and swap 1 jumpif 
+var0 load
+#enddef
+
+#_ 
+Input:
+ var1, var2: values to compare
+Changes:
+ var0, tmp_ret, tmp_loop
+Output:
+ var0: bitwise logical or of var1 and var2 
+_#
+#label $$logic$$.or
+tmp_ret swap store #_ store return address _#
+var0 swap 0 store
+tmp_loop swap 0xfffffffffffffffe store
+#label or.loop
+or.true swap var1 load jumpif 
+var2 load jumpif
+var0 swap var0 load rot store
+or.endif swap 1 jumpif
+#label or.true
+#_ var1[i]=1|var2[i]=1 _#
+var0 swap var0 load flip rot store
+#label or.endif
+var1 swap var1 load rot store
+var2 swap var2 load rot store
+tmp_loop swap tmp_loop load rot store
+swap or.loop swap jumpif #_ run exactly 64 iterations _#
+tmp_ret load swap 1 jumpif
+#_ end of $$logic$$.or _#
+#def or 
+$$logic$$.or swap 1 jumpif 
+var0 load
+#enddef
+
+#_ 
+Input:
+ var1, var2: values to compare
+Changes:
+ var0, tmp_ret, tmp_loop
+Output:
+ var0: bitwise logical xor of var1 and var2 
+_#
+#label $$logic$$.xor
+tmp_ret swap store #_ store return address _#
+var0 swap var1 load store
+tmp_loop swap 0xfffffffffffffffe store
+#label xor.loop
+xor.endif swap var2 load flip jumpif 
+#_ var2[i]=1 _#
+var0 swap var0 load flip store
+#label xor.endif
+var0 swap var0 load rot store
+var1 swap var1 load rot store
+var2 swap var2 load rot store
+tmp_loop swap tmp_loop load rot store
+swap xor.loop swap jumpif #_ run exactly 64 iterations _#
+tmp_ret load swap 1 jumpif
+#_ end of $$logic$$.xor _#
+#def xor 
+$$logic$$.xor swap 1 jumpif 
+var0 load
+#enddef
+
+#_ 
+flips all bits of the value in var0
+Input:
+ var0
+Changes:
+ var0, tmp_ret, tmp_loop
+Output:
+ var0
+_#
+#label $$logic$$.not
+tmp_ret swap store #_ store return address _#
+tmp_loop swap 0xfffffffffffffffe store
+#label not.loop
+var0 swap var0 load flip rot store
+tmp_loop swap tmp_loop load rot store
+swap not.loop swap jumpif #_ run exactly 64 iterations _#
+tmp_ret load swap 1 jumpif
+#_ end of $$logic$$.not _#
+#def not 
+swap var0 swap store
+$$logic$$.not swap 1 jumpif 
+var0 load
+#enddef
+
+#label $$logic$$
+#endif

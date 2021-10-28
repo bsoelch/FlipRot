@@ -23,18 +23,6 @@
 #_ flip then rot _#
 #def flipRot flip rot #enddef
 
-#_ flips all bits _#
-#def not 
-flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
-flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
-flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
-flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
-flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
-flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
-flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
-flipRot flipRot flipRot flipRot flipRot flipRot flipRot flipRot
-#enddef
-
 #_ sets the lowest bit to 1 _#
 #def set
 #undef set.jump

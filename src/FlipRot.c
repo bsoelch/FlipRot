@@ -297,14 +297,14 @@ size_t jumpAddress(Program* prog){
 }
 
 //returns true if and error occurs
-bool putLabel(Program* prog,CodePos pos,HashMap* map,String label){
+ErrorCode putLabel(Program* prog,CodePos pos,HashMap* map,String label){
 	uint64_t target = jumpAddress(prog);
 	Mapable prev=mapPut(map,label,
 			(Mapable) { .type = MAPABLE_POS,.value.asPos = target });
 	switch(prev.type){
 	case MAPABLE_NONE:
 		if(prev.value.asPos!=0){
-			return true;
+			return prev.value.asPos;
 		}
 		break;
 	case MAPABLE_POSARRAY:
@@ -319,10 +319,9 @@ bool putLabel(Program* prog,CodePos pos,HashMap* map,String label){
 	case MAPABLE_MACRO:
 		fprintf(stderr,"redefinition of label %.*s\n",(int)label.len,label.chars);
 		freeMapable(prev);
-		return true;
-		break;
+		return ERR_LABEL_REDEF;
 	}
-	return false;
+	return NO_ERR;
 }
 
 //returns true if and error occurs
@@ -575,7 +574,7 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 						};
 						return ret;
 					}
-					int err=putLabel(prog,pos,macroMap,str);
+					ErrorCode err=putLabel(prog,pos,macroMap,str);
 					if(err){
 						ret.isError=true;
 						ret.as.error=(ErrorInfo){
@@ -847,8 +846,8 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,String filePath,in
 							break;
 						case READ_LABEL:
 							if(prevState==READ_ACTION){
-								if(putLabel(prog,res.pos,macroMap,name)){
-									res.errCode=ERR_MEM;
+								res.errCode=putLabel(prog,res.pos,macroMap,name);
+								if(res.errCode){
 									goto errorCleanup;
 								}
 							}else{
@@ -1236,8 +1235,8 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,String filePath,in
 			}
 			memcpy(name.chars,s,prev);
 			name.len=prev;
-			if(putLabel(prog,res.pos,macroMap,name)){
-				res.errCode=ERR_MEM;
+			res.errCode=putLabel(prog,res.pos,macroMap,name);
+			if(res.errCode){
 				goto  errorCleanup;
 			}
 			name.chars=NULL;//unlink to prevent double free
@@ -1541,6 +1540,9 @@ void printError(ErrorInfo err){
 		break;
 	case ERR_UNRESOLVED_LABEL:
 		fputs("Unresolved Label\n",stderr);
+		break;
+	case ERR_LABEL_REDEF:
+		fputs("Label redefinition\n",stderr);
 		break;
 	case ERR_MACRO_REDEF:
 		fputs("Macro redefinition\n",stderr);
