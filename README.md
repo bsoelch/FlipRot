@@ -3,23 +3,27 @@ FlipRot is minimalistic programming language with only 2 data manipulation opera
 
 The main idea behind this project is to define a programming language with a minimalistic instruction set that defines most instructions though compile time macros and subroutines 
 
-The source code of the languare consists of actions separated by whitespaces, all code words that are not a keyword for the main language of the compiler instructions are interpreted as identifers that can be extended from labels or macros (identifers that are used before a definition can only be replaced by labels)
+The source code of the language consists of actions separated by whitespaces,
+ all code words that are not a keyword for the main language or a compiler instructions 
+ are interpreted as identifiers that can be extended from labels or macros 
+ (identifiers that are used before a definition can only be replaced by labels)
 
 ## Core Language
-The main language constists of 7 actions.
+The main language consists of 7 actions.
 ### LOAD_INT
 loads an (64-bit) integer-constant into the main register. 
 All integers in the source code are implicitly converted to LOAD_INT instructions,
-integers cstarting with 0x are interpredted as hexadecimal
+integers starting with 0x are interpreted as hexadecimal
 
 ### SWAP
 swaps the main and secondary register
 
 ### LOAD
-replaces the value in the main register with the value in memeory at the corresponding adress
+replaces the value in the main register with the value in memory 
+at the corresponding address
 
 ### STORE
-places the value in the main register at the memory adress in the secondary register
+places the value in the main register at the memory address in the secondary register
 
 ### JUMPIF
 if the lowest bit of the value in the main register is one the program
@@ -27,10 +31,10 @@ jumps to the address in the secondary register and
 the secondary register is set to the address after this instruction
 otherwise no operation is performed
 
-The behaviour of jump is undefined if the target addess is not set as a label
+The behavior of jump is undefined if the target address is not set through a label
 
 ### ROT
-rotates the the value in the main register by one bit to the right
+rotates the value in the main register by one bit to the right
 
 Examples:
 ```
@@ -57,40 +61,24 @@ main register is 3
 ```
 main register is 0
 
-## IO
-when reading and writing from special memory addresses IO-operations are prefored
-### Char-IO
-the adress 0xffffffffffffffff (2^64-1) is reserved for character IO,
-currently only ascii characters are suppored, 
-it is planed to support in/output of all unicode-characters 
-
-- loading from this address reads a character from the console and moves the char-id in the main register
-- storing to this address writes the character with the id in the main register to the console
-
-### Int-IO
-the adress 0xfffffffffffffffe (2^64-2) is currently used for direct IO of (64bit) integers,
-direct IO of numbers may be removed later
-
-- loading from this address reads a 64bit integer from the console and moves it to the main register
-- storing to this address writes the value of the main register (as hexadecimal number) to the console
-
-
 ## Compile Time Macros
 
 ### Comments
 Comments start with '#_ ' and end with '_#'
 
 Example:
+
 ```
 code 
 #_ this is a comment _# more code
 ```
 
-### lables
-Labels are defined by a '#label' followed by an identifer, 
-when derecerenced, a lable points to the codeposition after the label definition
+### labels
+Labels are defined by a '#label' followed by an identifier, 
+when dereferenced, a label points to the code position after the label definition
 
 Example:
+
 ```
 jumpif skip
 #label loop
@@ -101,9 +89,32 @@ jumpif loop
 jumps to skip if the lowest bit of the main register is one, 
 otherwise the main register is rotated until the lowest bit is a zero
 
+### include
+Include includes a file in the source-code,
+ file names with whitespaces have to be surrounded by " "
+Files are searched relative to the /lib folder
+ (located in the same folder as the executable), 
+if the file does not exist in lib it is interpreted as an absolute path
+Paths starting with . are interpreted relative to the current directory
+If the given path does not have a file extension, 
+the default file extension (.frs) is added
+
+Examples:
+
+```
+include stack
+include "text file.txt"
+include .examples\hello_world
+```
+Includes:
+- stack.frs from the standard library
+- examples\hello_world.frs in the local directory
+And tries to include
+- text file.txt in the root directory
+
 ### macros
-Macros start with '#def' followed by an identifer and end with '#enddef'
-every usage of the macro-identifer is replaced with the code-block between the identifer and end
+Macros start with '#def' followed by an identifier and end with '#enddef'
+every usage of the macro-identifier is replaced with the code-block between the identifier and end
 
 It is currently not allowed to define macros within macros, label in macros can be defined, but have to be undefined (#undef)
 to reuse the macro
@@ -115,13 +126,15 @@ Example:
 4 rot2
 ```
 is reduced to 
+
 ```
 4 rot rot
 ```
 which leads to a 1 in the main register
 
-### Undefining lables and macros
-using '#undef' followed by a identifiery removes the macro or label with that identifer
+### Undefining labels and macros
+using '#undef' followed by a identifier removes the macro or label with that identifier
+
 ```
 #label target
 #undef target
@@ -130,5 +143,61 @@ target swap
 #label target
 ```
 jumps to the second definition of target instead of the first one
+
+### ifdef, ifndef, else, endif
+
+ #ifdef and #ifndef allow to activate/deactivate code sections depending 
+on if a specific label is defined.
+
+```
+#ifndef file_lock
+
+#ifdef label
+#_ label is defined _#
+#else
+#_ label is not defined _#
+#endif
+
+#def file_lock #enddef
+#endif
+```
+
+
+## Memory
+The program starts with 16kB of memory at the top of the addressable space 
+(0x000000000000-0xffffffffffff)
+which are reserved for the [stack](lib/stack.frs).
+
+Through [CALL_RESIZE_HEAP]() more memory can be dynamically 
+allocated at the lower end of the address space 
+
+## System interaction
+
+At the end of memory there are 4 memory addresses that
+ allow interaction with the operating system
+- REG_SYS_CALL: 0xfffffffffffffff8ULL
+- REG_SYS_1:    0xfffffffffffffff0ULL
+- REG_SYS_2:    0xffffffffffffffe8ULL
+- REG_SYS_3:    0xffffffffffffffe0ULL
+
+Writing a CALL_ID to REG_SYS_CALL performs  
+an action depending on the data in the system registers.
+The currently supported CALL_IDs are:
+
+### CALL_RESIZE_HEAP:
+(Value: 0)
 	
+Ensures that the heap-size is at least the value in REG_SYS_1
+	
+### CALL_READ:
+(Value: 1)
+	
+Reads REG_SYS_3 bytes from the file REG_SYS_1 to the memory starting at REG_SYS_2 
+    
+### CALL_WRITE:
+(Value: 2)
+	
+Writes REG_SYS_3 bytes to the file REG_SYS_1 reading from memory starting at REG_SYS_2 
+
+
 

@@ -1334,6 +1334,7 @@ uint64_t memRead(ProgState* state,ErrorCode* err){
 			return 0;
 		}
 		*err=0;
+		//XXX special handling for BigEndian systems
 		return *((uint64_t*)(state->stackMem+(state->regA&STACK_ADDR_MASK)));
 	}
 	return heapRead(state->heap,state->regA,err);
@@ -1397,6 +1398,7 @@ ErrorCode memWrite(ProgState* state){
 		if(state->regB+sizeof(uint64_t)>MEM_SIZE){
 			return ERR_HEAP_ILLEGAL_ACCESS;
 		}
+		//XXX special handling for BigEndian systems
 		*((uint64_t*)(state->stackMem+(state->regB&STACK_ADDR_MASK)))=state->regA;
 		return NO_ERR;
 	}
@@ -1576,6 +1578,7 @@ int main(int argc,char** argv) {
 		fprintf(stderr,"File %s not found",argv[1]);
 		return EXIT_FAILURE;
 	}
+	//TODO customize lib path
 	rootPath=getDirFromPath((String){.chars=argv[0],.len=strlen(argv[0])});
 	String filePath={.chars=argv[1],.len=strlen(argv[1])};
 	//for debug purposes
