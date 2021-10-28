@@ -1,0 +1,119 @@
+#_ methods for comparing values _#
+#include core
+#include stack
+
+#ifndef $$cmp$$
+$$cmp$$ swap 1 jumpif #_ skip code _#
+
+#def $$cmp$$.GT 0x4 #enddef
+#def $$cmp$$.LT 0x2 #enddef
+#def $$cmp$$.EQ 0x1 #enddef
+
+#_ 
+Input:
+ var1, var2: values to compare
+Uses:
+ var0, var1, var2, tmp_ret, tmp_loop
+Output:
+ var0: var1 and var2 compared as unsigned 64bit integers
+   $$cmp$$.LT  *var1 <  *var2
+   $$cmp$$.EQ  *var1 =  *var2
+   $$cmp$$.GT  *var1 >  *var2
+
+_#
+#label $$cmp$$.cmp
+tmp_ret swap store #_ store return address _#
+var0 swap $$cmp$$.EQ store
+#label $$cmp$$.cmp.loop
+$$cmp$$.cmp.1HI var1 load jumpif
+$$cmp$$.cmp.endif var2 load swap jumpif
+#_ var1[i]=0,var2[i]=1 _#
+var0 swap $$cmp$$.LT store
+$$cmp$$.cmp.endif swap 1 jumpif
+#label $$cmp$$.cmp.1HI
+$$cmp$$.cmp.endif var2 load jumpif
+#_ var1[i]=1,var2[i]=0 _#
+var0 swap $$cmp$$.GT store
+#label $$cmp$$.cmp.endif
+var1 swap var1 load rot store
+var1 swap var1 load rot store
+tmp_loop swap tmp_loop load rot store
+swap $$cmp$$.cmp.loop swap jumpif #_ run exactly 64 iterations _#
+tmp_ret load swap 1 jumpif
+#_ end of $$cmp$$.cmp _#
+
+#_ 
+Input:
+ var1, var2: values to compare
+Uses:
+ var0, var1, var2, tmp_ret, tmp_loop
+sets lowest bit in main register to 1 iff *var1==*var2
+_#
+#def eq 
+tmp_loop swap 1 store #_ 64-bit mode_#
+$$cmp$$.cmp swap 1 jumpif 
+var0 load
+#enddef
+
+#_ 
+Input:
+ var1, var2: values to compare
+Uses:
+ var0, var1, var2, tmp_ret, tmp_loop
+sets lowest bit in main register to 1 iff *var1<*var2
+_#
+#def lt 
+tmp_loop swap 1 store #_ 64-bit mode_#
+$$cmp$$.cmp swap 1 jumpif 
+var0 load rot
+#enddef
+
+#_ 
+Input:
+ var1, var2: values to compare
+Uses:
+ var0, var1, var2, tmp_ret, tmp_loop
+sets lowest bit in main register to 1 iff *var1>*var2
+_#
+#def gt 
+tmp_loop swap 1 store #_ 64-bit mode_#
+$$cmp$$.cmp swap 1 jumpif 
+var0 load rot rot
+#enddef
+
+#_ 
+Input:
+ var1, var2: values to compare
+Uses:
+ var0, var1, var2, tmp_ret, tmp_loop
+sets lowest bit in main register to 1 iff *var1!=*var2
+_#
+#def neq 
+eq flip
+#enddef
+
+#_ 
+Input:
+ var1, var2: values to compare
+Uses:
+ var0, var1, var2, tmp_ret, tmp_loop
+sets lowest bit in main register to 1 iff *var1>=*var2
+_#
+#def ge 
+lt flip
+#enddef
+#_ 
+Input:
+ var1, var2: values to compare
+Uses:
+ var0, var1, var2, tmp_ret, tmp_loop
+sets lowest bit in main register to 1 iff *var1<=*var2
+_#
+#def le 
+gt flip
+#enddef
+
+#_ macros for 32/16/8bit mode _#
+
+#label $$cmp$$
+#endif

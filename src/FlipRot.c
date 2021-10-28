@@ -89,7 +89,7 @@ void reinitMacro(Macro* macro){
 	macro->len=0;
 }
 
-//test if cStr (NULL-terminated) is equals to str (length len)
+//test if cStr (NULL-terminated) is equals str
 //ignores the case of all used chars
 int strCaseEq(const char* cStr,String str){
 	size_t i=0;

@@ -1,9 +1,9 @@
-#_ Stack implementation at the upper end of RAM
+#_ methods for handling the stack management
 Memory layout: 
-0xffffff-0xfffffd addresses for tmp-vars
-0xfffffc-0xfffff1 addresses additional register-like values
-0xfffff0 stack-pointer
-0xffffef-0xf00000 stack 
+0xffffffffffff-0xfffffffffff0 addresses for tmp-vars
+0xffffffffffef-0xffffffffff80 addresses additional register-like values
+0xffffffffff78 stack-pointer
+0xffffffffff70-0xffffff000000 stack 
 _#
 #ifndef $$stack$$
 #_ skip code in file _#
@@ -14,7 +14,8 @@ these address may be overwritten by any macro _#
 #def tmp_ret  0xfffffffffff8 #enddef
 #def tmp_loop 0xfffffffffff0 #enddef
 #_ addresses for immediate values 
-this addresses may be saved on/restored from the stack on procedure calls
+it is the responsibility of the caller to save 
+registers that should be retained on the stack
 _#
 #def varD 0xffffffffffe8 #enddef
 #def varC 0xffffffffffe0 #enddef

@@ -4,7 +4,6 @@
 #include stack
 #include inc
 #include asciiOut
-#include ascii
 
 #_ skip code section_#
 #ifndef $$intToHex$$
@@ -290,11 +289,6 @@ pop swap 1 jumpif #_ jump to return address_#
 #def printHex 
 swap varD swap store
 $$intToHex$$.printHex swap 1 jumpif 
-#enddef
-#def printlnHex 
-swap varD swap store
-$$intToHex$$.printHex swap 1 jumpif 
-'\n' WRITE_CHAR
 #enddef
 
 
