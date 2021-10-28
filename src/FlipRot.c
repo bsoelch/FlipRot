@@ -422,6 +422,7 @@ ErrorCode addAction(Program* prog,Action a){
 			case FLIP:
 			case ROT:
 			case LOAD:
+			case LABEL:
 			case LOAD_INT://load-int overwrites changed value
 				//XXX flag: IGNORE_ERR_INT_OVERWRITE
 				return ERR_INT_OVERWRITE;

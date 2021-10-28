@@ -2,6 +2,9 @@
 #ifndef $$core$$
 #def $$core$$ #enddef
 
+#_ crashes the program though a illegal heap access_#
+#def CRASH swap 0x80000000000000 swap store #enddef
+
 #_ rotation operations _#
 #def >>1  rot       #enddef
 #def >>2  >>1  >>1  #enddef
