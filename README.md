@@ -168,7 +168,7 @@ The program starts with 16kB of memory at the top of the addressable space
 (0x000000000000-0xffffffffffff)
 which are reserved for the [stack](lib/stack.frs).
 
-Through [CALL_RESIZE_HEAP]() more memory can be dynamically 
+Through [CALL_RESIZE_HEAP](https://github.com/bsoelch/FlipRot#system-interaction) more memory can be dynamically 
 allocated at the lower end of the address space 
 
 ## System interaction
