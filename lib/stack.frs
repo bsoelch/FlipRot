@@ -129,25 +129,21 @@ tmp_ret load swap #_ load return address _#
 
 
 #def push 
-#_ needs macro in macro 
-#ifndef $$stack$$.stackInitialized
+#ifndef $$stack$$.flag.stackInitialized
 stack_reset
-#def $$stack$$.stackInitialized #enddef
+#label $$stack$$.flag.stackInitialized
 #endif
-_#
-
 swap stack_ptr load swap store #_ store value at top of stack _#
 $$stack$$.dec swap 
 1 jumpif #_ decrement the stack pointer _#
 #enddef
 
 #def pop 
-#_ needs macro in macro 
-#ifndef $$stack$$.stackInitialized
+#ifndef $$stack$$.flag.stackInitialized
 stack_reset
-#def $$stack$$.stackInitialized #enddef
-#endif 
-_#
+#label $$stack$$.flag.stackInitialized
+#endif
+
 $$stack$$.inc swap 
 1 jumpif #_ increment the stack_pointer _#
 stack_ptr load load #_ load value at top of stack _#
