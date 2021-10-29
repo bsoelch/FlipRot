@@ -28,7 +28,7 @@ static const int MAP_CAP=2048;
 static const int BUFFER_SIZE=2048;
 static const int INIT_CAP_PROG=16;
 
-static const char* LIB_DIR_NAME = "lib/";
+static const char* DEF_LIB_DIR_NAME = "lib/";
 static const char* DEFAULT_FILE_EXT = ".frs";//flipRot-script
 
 
@@ -46,7 +46,7 @@ typedef enum{
 } ReadState;
 
 //directory of this executable
-String rootPath;
+String libPath;
 
 void unlinkMacro(Macro* macro){
 	macro->actions=NULL;
@@ -229,8 +229,8 @@ bool hasFileExtension(String str){
 ErrorInfo include(Program* prog,CodePos at,HashMap* macroMap,String path,String parentPath,int depth){
 	bool hasExt=hasFileExtension(path);
 	parentPath=getDirFromPath(parentPath);
-	size_t pathLen=path.len+(parentPath.len>(rootPath.len+strlen(LIB_DIR_NAME))?
-			parentPath.len:rootPath.len+strlen(LIB_DIR_NAME))+strlen(DEFAULT_FILE_EXT)+1;
+	size_t pathLen=path.len+(parentPath.len>(libPath.len)?
+			parentPath.len:libPath.len)+strlen(DEFAULT_FILE_EXT)+1;
 	char* filePath=malloc(pathLen);
 	ErrorInfo r=(ErrorInfo){
 		.errCode=NO_ERR,
@@ -258,12 +258,11 @@ ErrorInfo include(Program* prog,CodePos at,HashMap* macroMap,String path,String 
 		filePath[pathLen]='\0';
 		file=fopen(filePath,"r");
 	}else{//try as lib path
-		memcpy(filePath,rootPath.chars,rootPath.len);
-		memcpy(filePath + rootPath.len,LIB_DIR_NAME,strlen(LIB_DIR_NAME));
-		memcpy(filePath+rootPath.len+strlen(LIB_DIR_NAME),path.chars,path.len);
-		pathLen=rootPath.len+strlen(LIB_DIR_NAME)+path.len;
+		memcpy(filePath,libPath.chars,libPath.len);
+		memcpy(filePath+libPath.len,path.chars,path.len);
+		pathLen=libPath.len+path.len;
 		//don't include lib-path in codePos
-		r.pos.at->file=(String){.chars=filePath+rootPath.len,.len=pathLen-rootPath.len};
+		r.pos.at->file=(String){.chars=filePath+libPath.len,.len=pathLen-libPath.len};
 		if(!hasExt){
 			memcpy(filePath+pathLen,DEFAULT_FILE_EXT,strlen(DEFAULT_FILE_EXT));
 			pathLen+=strlen(DEFAULT_FILE_EXT);
@@ -1576,7 +1575,11 @@ void printError(ErrorInfo err){
 
 
 void printUsage(){
-	puts("usage: <filename>");
+	puts("usage:");
+	puts("<filename>");
+	puts("-d <filename>");
+	puts("<filename> -lib <libDir> ");
+	puts("");
 	// -d <filename> => debug
 	// -lib <path> => set lib path
 }
@@ -1587,15 +1590,64 @@ int main(int argc,char** argv) {
 		printUsage();
 		return EXIT_FAILURE;
 	}
-	FILE* file;
+	FILE* file=NULL;
 	if(argc==2){
 		file=fopen(argv[1],"r");;
-		rootPath=getDirFromPath((String){.chars=argv[0],.len=strlen(argv[0])});
+		libPath=getDirFromPath((String){.chars=argv[0],.len=strlen(argv[0])});
+		//append DEF_LIB_DIR_NAME to libPath
+		char* tmp=malloc(libPath.len+strlen(DEF_LIB_DIR_NAME));
+		if(!tmp){
+			puts("out of memory");
+			return EXIT_FAILURE;
+		}
+		memcpy(tmp,libPath.chars,libPath.len);
+		memcpy(tmp+libPath.len,DEF_LIB_DIR_NAME,strlen(DEF_LIB_DIR_NAME));
+		libPath.chars=tmp;
+		libPath.len+=strlen(DEF_LIB_DIR_NAME);
 	}else{
-		//TODO customize lib path
-		puts("to many arguments");
-		printUsage();
-		return EXIT_FAILURE;
+		bool needsLib=true;
+		bool debug=false;
+		for(int i=1;i<argc;i++){
+			if(strcmp(argv[i],"-lib")==0){
+				i++;//read next argument
+				if(i>=argc){
+					puts("missing argument for lib");
+					printUsage();
+					return EXIT_FAILURE;
+				}
+				libPath=(String){.chars=argv[i],.len=strlen(argv[i])};
+				//ensure libPath ends with file separator
+				char* tmp=malloc(libPath.len+1);
+				if(!tmp){
+					puts("out of memory");
+					return EXIT_FAILURE;
+				}
+				memcpy(tmp,libPath.chars,libPath.len);
+				libPath.chars=tmp;
+				if((tmp[libPath.len-1]!='/'&&tmp[libPath.len-1]!='\\')){
+					tmp[libPath.len++]='/';
+				}
+				needsLib=false;
+			}else if(strcmp(argv[i],"-d")==0){
+				debug=true;
+			}else {
+				if(file!=NULL){
+					puts("multiple files specified");
+					printUsage();
+					return EXIT_FAILURE;
+				}
+				file=fopen(argv[i],"r");;
+			}
+		}
+		if(file==NULL){
+			puts("no file specified");
+			printUsage();
+			return EXIT_FAILURE;
+		}
+		if(needsLib){
+			libPath=getDirFromPath((String){.chars=argv[0],.len=strlen(argv[0])});
+		}
+		(void) debug;//XXX introduce debug-mode
 	}
 	if(!file){
 		fprintf(stderr,"File %s not found",argv[1]);
@@ -1603,7 +1655,7 @@ int main(int argc,char** argv) {
 	}
 	String filePath={.chars=argv[1],.len=strlen(argv[1])};
 	//for debug purposes
-	printf("root: %.*s\n",(int)rootPath.len,rootPath.chars);
+	printf("root: %.*s\n",(int)libPath.len,libPath.chars);
 	Program prog;
 	reinitMacro(&prog);
 	HashMap* macroMap=createHashMap(MAP_CAP);
