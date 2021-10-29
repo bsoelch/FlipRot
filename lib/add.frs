@@ -1,0 +1,141 @@
+#_ methods for addition_#
+#include core
+#include stack
+
+#ifndef $$add$$
+$$add$$ swap 1 jumpif 
+
+#_ 
+Input: var1,var2 values to add
+Modifies: var0,var3,tmp_ret,tmp_loop
+Output: 
+ var0 result of addition
+ var3 carry bit (1 iff overflow)
+_#
+#label add
+#undef add.loop
+tmp_ret swap store
+tmp_loop swap 0xfffffffffffffffe store #_ TODO? 32bit/8bit mode _#
+var0 swap 0 store
+var3 swap 0 store
+#label add.loop
+add.if1 swap var1 load jumpif 
+add.if01 swap var2 load jumpif 
+add.if=1 swap var3 load jumpif 
+#_ 0 _#
+add.endif swap 1 jumpif 
+#label add.if1
+add.if11 swap var2 load jumpif 
+add.if=2 swap var3 load jumpif 
+add.if=1 swap 1 jumpif 
+#label add.if01
+add.if=2 swap var3 load jumpif 
+add.if=1 swap 1 jumpif 
+#label add.if11
+add.if=3 swap var3 load jumpif 
+add.if=2 swap 1 jumpif 
+#label add.if=1
+#_ 1 _#
+var0 swap var0 load flip store
+var3 swap 0 store
+add.endif swap 1 jumpif 
+#label add.if=2
+#_ 2 _#
+var3 swap 1 store
+add.endif swap 1 jumpif 
+#label add.if=3
+#_ 3 _#
+var0 swap var0 load flip store
+var3 swap 1 store
+#label add.endif
+var0 swap var0 load rot store
+var1 swap var1 load rot store
+var2 swap var2 load rot store
+tmp_loop swap tmp_loop load rot store
+swap add.loop swap jumpif
+#undef add.loop
+tmp_ret load swap 1 jumpif
+#_ end of add_#
+
+
+#_ 
+Input: var1,var2 values to subtract
+Modifies: var0,var3,tmp_ret,tmp_loop
+Output: 
+ var0 result of subtraction var1-var2
+ var3 carry bit (1 iff underflow)
+_#
+#label subt
+#undef subt.loop
+tmp_ret swap store
+tmp_loop swap 0xfffffffffffffffe store #_ TODO? 32bit/8bit mode _#
+var0 swap 0 store
+var3 swap 0 store
+#label subt.loop
+subt.if1 swap var1 load jumpif 
+subt.if01 swap var2 load jumpif 
+subt.if=11 swap var3 load jumpif 
+#label subt.if=00
+#_ 0,0 _#
+var3 swap 0 store
+subt.endif swap 1 jumpif 
+#label subt.if1
+subt.if11 swap var2 load jumpif 
+subt.if=00 swap var3 load jumpif 
+#label subt.if=10
+#_ 1,0 _#
+var3 swap 0 store
+var0 swap var0 load flip store
+subt.endif swap 1 jumpif 
+#label subt.if11
+subt.if=11 swap var3 load jumpif 
+subt.if=00 swap 1 jumpif 
+#label subt.if01
+subt.if=01 swap var3 load jumpif 
+#label subt.if=11
+#_ 1,1 _#
+var0 swap var0 load flip store
+var3 swap 1 store
+subt.endif swap 1 jumpif 
+#label subt.if=01
+#_ 0,1 _#
+var3 swap 1 store
+#label subt.endif
+var0 swap var0 load rot store
+var1 swap var1 load rot store
+var2 swap var2 load rot store
+tmp_loop swap tmp_loop load rot store
+swap subt.loop swap jumpif
+#undef subt.loop
+tmp_ret load swap 1 jumpif
+#_ end of subt _#
+
+
+#_ 
+Input: var0 value to negate
+Modifies: var0,var1,tmp_ret,tmp_loop
+Output: 
+ var0 result of subtraction var1-var2
+_#
+#label neg
+#undef neg.loop
+tmp_ret swap store
+tmp_loop swap 0xfffffffffffffffe store #_ TODO? 32bit/8bit mode _#
+var1 swap 0 store
+#label neg.loop
+neg.if1   swap var1 load jumpif 
+neg.endif swap var0 load flip jumpif 
+var1 swap 1 store
+neg.endif swap 1 jumpif 
+#label neg.if1
+var0 swap var0 load flip store
+#label neg.endif
+var0 swap var0 load rot store
+tmp_loop swap tmp_loop load rot store
+swap neg.loop swap jumpif
+#undef neg.loop
+tmp_ret load swap 1 jumpif
+#_ end of neg _#
+
+#label $$add$$
+#endif
