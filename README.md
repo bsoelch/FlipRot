@@ -61,6 +61,38 @@ main register is 3
 ```
 main register is 0
 
+### SYS
+The sys keyword allows a limited the interaction with the operating system 
+(mainly IO), sys functions similar to store 
+but is restricted to specifc system registers 
+
+the action of sys depends on the value of the secondary register.
+
+If it is nonzero, the value in the main register is written to sys-register 
+given by the secondary register. 
+If the system register contained an output value, that value is moved to regA
+
+IF the secondary register is 0 a "sys-call" (no direct connection to linux syscalls) 
+is performed using the system-registers as arguments.
+
+Currently the supported CALL_IDs are:
+
+#### CALL_RESIZE_HEAP:
+(Value: 0)
+	
+Ensures that the heap-size is at least the value in REG_SYS_1
+	
+#### CALL_READ:
+(Value: 1)
+	
+Reads REG_SYS_3 bytes from the file REG_SYS_1 to the memory starting at REG_SYS_2 
+    
+#### CALL_WRITE:
+(Value: 2)
+	
+Writes REG_SYS_3 bytes to the file REG_SYS_1 reading from memory starting at REG_SYS_2 
+
+
 ## Compile Time Macros
 
 ### Comments
@@ -168,36 +200,7 @@ The program starts with 16kB of memory at the top of the addressable space
 (0x000000000000-0xffffffffffff)
 which are reserved for the [stack](lib/stack.frs).
 
-Through [CALL_RESIZE_HEAP](https://github.com/bsoelch/FlipRot#system-interaction) more memory can be dynamically 
+Through [CALL_RESIZE_HEAP](https://github.com/bsoelch/FlipRot#sys) more memory can be dynamically 
 allocated at the lower end of the address space 
-
-## System interaction
-
-At the end of memory there are 4 memory addresses that
- allow interaction with the operating system
-- REG_SYS_CALL: 0xfffffffffffffff8ULL
-- REG_SYS_1:    0xfffffffffffffff0ULL
-- REG_SYS_2:    0xffffffffffffffe8ULL
-- REG_SYS_3:    0xffffffffffffffe0ULL
-
-Writing a CALL_ID to REG_SYS_CALL performs  
-an action depending on the data in the system registers.
-The currently supported CALL_IDs are:
-
-### CALL_RESIZE_HEAP:
-(Value: 0)
-	
-Ensures that the heap-size is at least the value in REG_SYS_1
-	
-### CALL_READ:
-(Value: 1)
-	
-Reads REG_SYS_3 bytes from the file REG_SYS_1 to the memory starting at REG_SYS_2 
-    
-### CALL_WRITE:
-(Value: 2)
-	
-Writes REG_SYS_3 bytes to the file REG_SYS_1 reading from memory starting at REG_SYS_2 
-
 
 

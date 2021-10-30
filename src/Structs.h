@@ -16,17 +16,15 @@
 
 #define STACK_MEM_SIZE            0x1000000ULL
 #define HEAP_INIT_SIZE             0x100000ULL
-#define SYS_REG_COUNT                     4ULL
 
 //only use 48bits for mem-addresses
 #define MEM_MASK_INVALID 0xffff000000000000ULL
-#define MEM_MASK_SYS     0xffffffffffffffe0ULL
-#define MEM_SYS_CALL     0xfffffffffffffff8ULL
-#define SYS_ADDR_MASK    0x000000000000001fULL
 #define MEM_MASK_STACK       0xffffff000000ULL
 #define MEM_STACK_START      0xffffff000000ULL
 #define STACK_ADDR_MASK      0x000000ffffffULL
 
+#define SYS_REG_COUNT                     8ULL
+#define SYS_REG_MASK                      7ULL
 //System interaction calls
 #define CALL_RESIZE_HEAP  0
 #define CALL_READ  1
@@ -38,6 +36,7 @@
 #define REG_IO_TARGET sysReg[2]
 #define REG_IO_COUNT sysReg[3]
 #define PTR_REG_IO_COUNT sysReg+3
+#define REG_COUNT_MASK 0x8
 
 
 typedef struct{
@@ -98,6 +97,7 @@ typedef enum{
 	JUMPIF,//swaps B with the current code position if A&1 is true
 	ROT,//rotates the bits of A 1 to the right
 	FLIP,//flips the lowest bit in A
+	SYSTEM,//performs a system interaction action
 	//debug commands
 	BREAKPOINT,
 	//compiler commands

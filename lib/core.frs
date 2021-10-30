@@ -5,6 +5,24 @@
 #_ crashes the program though a illegal heap access_#
 #def CRASH swap 0x80000000000000 swap store #enddef
 
+#def SYS_REG_CALL  0 #enddef
+
+#def CALL_HEAP_RESIZE 0 #enddef
+#def CALL_READ        1 #enddef
+#def CALL_WRITE       2 #enddef
+
+#_ Sys registers names _#
+#def SYS_REG_HEAP_SIZE 1 #enddef
+#def SYS_REG_FD        1 #enddef
+#def SYS_REG_DATA      2 #enddef
+#def SYS_REG_COUNT     3 #enddef
+
+#_ File descriptors for default streams_#
+#def STD_IN  0 #enddef
+#def STD_OUT 1 #enddef
+#def STD_ERR 2 #enddef
+
+
 #_ rotation operations _#
 #def >>1  rot       #enddef
 #def >>2  >>1  >>1  #enddef

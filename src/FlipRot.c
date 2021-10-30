@@ -59,6 +59,7 @@ void freeMacro(Macro* m){
 			switch(m->actions[i].type){
 			case INVALID:
 			case LOAD_INT:
+			case SYSTEM:
 			case SWAP:
 			case LOAD:
 			case STORE:
@@ -162,6 +163,8 @@ Action loadAction(String name,CodePos pos){
 		ret.type=STORE;
 	}else if(strCaseEq("JUMPIF",name)){
 		ret.type=JUMPIF;
+	}else if(strCaseEq("SYS",name)){
+		ret.type=SYSTEM;
 	}else if(strCaseEq("#breakpoint",name)){//breakpoint
 		ret.type=BREAKPOINT;
 		ret.data.asString=(String){.len=0,.chars=NULL};
@@ -410,13 +413,16 @@ ErrorCode addAction(Program* prog,Action a,bool debugMode){
 					prog->len--;
 				}
 				return NO_ERR;
+			case STORE:
+				//TODO? errorMessage
+				return NO_ERR;//two stores with same data have no effect
 			//remaining ops are not compressible
 			case LOAD_INT:
 				//XXX flag: IGNORE_ERR_INT_OVERWRITE
 				return ERR_INT_OVERWRITE;//two load-ints in sequence have no effect
 			case INVALID:
 			case LOAD:
-			case STORE:
+			case SYSTEM:
 			case JUMPIF:
 			case COMMENT_START:
 			case IFDEF:
@@ -647,6 +653,7 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 			case ROT:
 			case FLIP:
 			case BREAKPOINT:
+			case SYSTEM:
 				if(save&1){
 					ErrorCode res=addAction(prog,a,debug);
 					if(res){
@@ -1073,6 +1080,7 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 						case JUMPIF:
 						case ROT:
 						case FLIP:
+						case SYSTEM:
 							if(saveToken&1){
 								if(state==READ_MACRO_ACTION){
 									err.errCode=addAction(&tmpMacro,a,debug);
@@ -1167,6 +1175,7 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 			case JUMPIF:
 			case ROT:
 			case FLIP:
+			case SYSTEM:
 				if(saveToken&1){
 					err.errCode=addAction(prog,a,debug);
 					if(err.errCode){
@@ -1354,11 +1363,8 @@ uint64_t writeWrapper(uint64_t fd,char* buffer,uint64_t* count){
 //is an error occurs err is set to 1 otherwise err is set to 0
 uint64_t memRead(ProgState* state,ErrorCode* err){
 	if((state->regA&MEM_MASK_INVALID)!=0){
-		if((state->regA&MEM_MASK_SYS)==MEM_MASK_SYS){
-			*err=0;
-			return state->sysReg[SYS_REG_COUNT-
-								 (state->regA&SYS_ADDR_MASK)/sizeof(uint64_t)-1];
-		}
+		*err=ERR_HEAP_ILLEGAL_ACCESS;
+		return 0;
 	}else if((state->regA&MEM_MASK_STACK)==MEM_STACK_START){
 		if(state->regA+sizeof(uint64_t)>MEM_SIZE){
 			*err=ERR_HEAP_ILLEGAL_ACCESS;
@@ -1375,55 +1381,6 @@ uint64_t memRead(ProgState* state,ErrorCode* err){
 //is an error occurs the return value is 1 otherwise 0 is returned
 ErrorCode memWrite(ProgState* state){
 	if((state->regB&MEM_MASK_INVALID)!=0){
-		if(state->regB==MEM_SYS_CALL){
-			switch(state->regA){
-			case CALL_RESIZE_HEAP:
-				state->regA=heapEnsureCap(&state->heap,state->sysReg[1]);
-				break;
-			case CALL_READ:{
-				char* buffer=malloc(state->REG_IO_COUNT);
-				if(!buffer){
-					return ERR_MEM;
-				}
-				state->regA=readWrapper(state->REG_IO_FD,buffer,
-						state->PTR_REG_IO_COUNT);
-				//TODO copyData to heap
-				free(buffer);
-			}break;
-			case CALL_WRITE:{
-				char* buffer=malloc(state->REG_IO_COUNT);
-				if(!buffer){
-					return ERR_MEM;
-				}
-				if(state->REG_IO_TARGET+state->REG_IO_COUNT>MEM_SIZE){
-					return ERR_HEAP_ILLEGAL_ACCESS;
-				}
-				if(state->REG_IO_TARGET>=MEM_STACK_START){
-					memcpy(buffer,((char*)state->stackMem)+state->REG_IO_TARGET-MEM_STACK_START
-							,state->REG_IO_COUNT);
-				}else if(state->REG_IO_TARGET+state->REG_IO_COUNT>=MEM_STACK_START){
-					uint64_t off=MEM_STACK_START-state->REG_IO_TARGET;
-					memcpy(buffer+off,state->stackMem,state->REG_IO_COUNT-off);
-				}//no else
-				if(state->REG_IO_TARGET<MEM_STACK_START){
-					uint64_t count=MEM_STACK_START-state->REG_IO_TARGET;
-					count=count>state->REG_IO_COUNT?state->REG_IO_COUNT:count;
-					//TODO getData from heap
-				}
-				state->regA=writeWrapper(state->REG_IO_FD,buffer,
-						state->PTR_REG_IO_COUNT);
-				free(buffer);
-			}break;
-			default:
-				state->regA=-1;//TODO errorCodes
-				break;
-			}
-			return NO_ERR;
-		}else if((state->regB&MEM_MASK_SYS)==MEM_MASK_SYS){
-			state->sysReg[SYS_REG_COUNT-
-						  (state->regB&SYS_ADDR_MASK)/sizeof(uint64_t)-1]=state->regA;
-			return NO_ERR;
-		}
 		return ERR_HEAP_ILLEGAL_ACCESS;
 	}else if((state->regB&MEM_MASK_STACK)==MEM_STACK_START){
 		if(state->regB+sizeof(uint64_t)>MEM_SIZE){
@@ -1527,6 +1484,75 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 				}else{
 					state->ip++;
 				}
+				break;
+			case SYSTEM:;
+				int regID=state->regB&SYS_REG_MASK;
+				if(regID==0){
+					switch(state->regA){
+					case CALL_RESIZE_HEAP:
+						state->regA=heapEnsureCap(&state->heap,state->sysReg[1]);
+						break;
+					case CALL_READ:{
+						char* buffer=malloc(state->REG_IO_COUNT);
+						if(!buffer){
+							return (ErrorInfo){
+								.errCode=ERR_MEM,
+								.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
+										:NULL_POS,
+							};
+						}
+						state->regA=readWrapper(state->REG_IO_FD,buffer,
+								state->PTR_REG_IO_COUNT);
+						state->sysReg[0]|=REG_COUNT_MASK;
+						//TODO copyData to heap
+						free(buffer);
+					}break;
+					case CALL_WRITE:{
+						char* buffer=malloc(state->REG_IO_COUNT);
+						if(!buffer){
+							return (ErrorInfo){
+								.errCode=ERR_MEM,
+								.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
+										:NULL_POS,
+							};
+						}
+						if(state->REG_IO_TARGET+state->REG_IO_COUNT>MEM_SIZE){
+							return (ErrorInfo){
+								.errCode=ERR_HEAP_ILLEGAL_ACCESS,
+								.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
+										:NULL_POS,
+							};
+						}
+						if(state->REG_IO_TARGET>=MEM_STACK_START){
+							memcpy(buffer,((char*)state->stackMem)+state->REG_IO_TARGET-MEM_STACK_START
+									,state->REG_IO_COUNT);
+						}else if(state->REG_IO_TARGET+state->REG_IO_COUNT>=MEM_STACK_START){
+							uint64_t off=MEM_STACK_START-state->REG_IO_TARGET;
+							memcpy(buffer+off,state->stackMem,state->REG_IO_COUNT-off);
+						}//no else
+						if(state->REG_IO_TARGET<MEM_STACK_START){
+							uint64_t count=MEM_STACK_START-state->REG_IO_TARGET;
+							count=count>state->REG_IO_COUNT?state->REG_IO_COUNT:count;
+							//TODO getData from heap
+						}
+						state->regA=writeWrapper(state->REG_IO_FD,buffer,
+								state->PTR_REG_IO_COUNT);
+						state->sysReg[0]|=REG_COUNT_MASK;
+						free(buffer);
+					}break;
+					default:
+						state->regA=-1;//TODO errorCodes
+						break;
+					}
+				}else{
+					tmp=state->sysReg[regID];
+					state->sysReg[regID]=state->regA;
+					if(state->sysReg[0]&(1<<regID)){
+						state->sysReg[0]^=(1<<regID);//clear readable flag
+						state->regA=tmp;
+					}
+				}
+				state->ip++;
 				break;
 		}
 		if(debug){
