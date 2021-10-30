@@ -191,4 +191,9 @@ typedef struct{
 	}as;
 }ActionOrError;
 
+typedef struct{
+	size_t maxSteps;
+	//XXX breakAt ...
+}DebugInfo;
+
 #endif /* STRUCTS_H_ */

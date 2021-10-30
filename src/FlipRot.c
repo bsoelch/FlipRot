@@ -189,10 +189,10 @@ Action loadAction(String name,CodePos pos){
 	}else if(strCaseEq("#enddef",name)){
 		ret.type=MACRO_END;
 	}
-	// #flag -> compiler label for ifdef, cannot be dereferences
+	// #flag -> compiler label for ifdef, cannot be dereferenced
 	// #ignore -> ignores int-overwrite error
 	// #const -> integer constant
-	// #break -> breakPoint
+	// #break_lable -> labeled-breakpoint
 	return ret;
 }
 
@@ -1392,7 +1392,7 @@ ErrorCode memWrite(ProgState* state){
 
 //TODO? compile program to C?
 
-ErrorInfo runProgram(Program prog,ProgState* state,bool debug){//XXX debug struct
+ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 	ErrorCode ioRes;
 	uint64_t tmp;
 	for(;state->ip<prog.len;){
@@ -1569,6 +1569,20 @@ void printError(ErrorInfo err){
 	}
 }
 
+ErrorInfo debugProgram(Program prog,ProgState* initState){
+	ErrorInfo res;
+	DebugInfo debug={
+			.maxSteps=SIZE_MAX
+	};
+	do{
+		res=runProgram(prog,initState,&debug);
+		if(res.errCode==ERR_BREAK){
+			printError(res);
+			initState->ip++;//increase ip after break
+		}
+	}while(res.errCode==ERR_BREAK);
+	return res;
+}
 
 void printUsage(){
 	puts("usage:");
@@ -1693,15 +1707,9 @@ int main(int argc,char** argv) {
 	}
 	fflush(stdout);
 	if(debug){
-		do{
-			res=runProgram(prog,&initState,debug);
-			if(res.errCode==ERR_BREAK){
-				printError(res);
-				initState.ip++;//increase ip after break
-			}
-		}while(res.errCode==ERR_BREAK);
+		res=debugProgram(prog,&initState);
 	}else{
-		res=runProgram(prog,&initState,debug);
+		res=runProgram(prog,&initState,NULL);
 	}
 	if(res.errCode){
 		fprintf(stderr,"Error while executing Program\n");
