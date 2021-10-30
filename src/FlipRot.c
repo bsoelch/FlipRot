@@ -191,6 +191,7 @@ Action loadAction(String name,CodePos pos){
 	}else if(strCaseEq("#enddef",name)){
 		ret.type=MACRO_END;
 	}
+	//XXX compiler commands:
 	// #flag -> compiler label for ifdef, cannot be dereferenced
 	// #ignore -> ignores int-overwrite error
 	// #const -> integer constant
@@ -709,8 +710,6 @@ String getSegment(size_t* prev,char** s,size_t* sCap,char* buffer,size_t i,size_
 	return t;
 }
 
-
-//XXX allow definition of macros in macros
 ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 		String errPath,String filePath,int depth,bool debug){
 	ErrorInfo err={.errCode=NO_ERR,
@@ -1453,7 +1452,10 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 			case INVALID:
 				case INCLUDE:
 			case BREAKPOINT:
-				if(debug&&mapGet(debug->activeBreaks,prog.actions[state->ip].data.asString).type!=MAPABLE_NONE){
+				//XXX depending on first char of name enabled/disabled by default?
+				//normally enabled, starting with '!' inverted
+				if(debug&&mapGet(debug->activeBreaks,
+						prog.actions[state->ip].data.asString).type!=MAPABLE_NONE){
 					return (ErrorInfo){
 						.errCode=ERR_BREAK,
 						.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
