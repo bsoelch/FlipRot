@@ -69,6 +69,7 @@ void freeMacro(Macro* m){
 			case ENDIF:
 			case MACRO_START:
 			case MACRO_END:
+			case BREAKPOINT:
 				break;//no pointer in data
 			case INCLUDE:
 			case IFDEF:
@@ -160,6 +161,8 @@ Action loadAction(String name,CodePos pos){
 		ret.type=STORE;
 	}else if(strCaseEq("JUMPIF",name)){
 		ret.type=JUMPIF;
+	}else if(strCaseEq("#break",name)){//breakpoint
+		ret.type=BREAKPOINT;
 	}else if(strCaseEq("#_",name)){//comment
 		ret.type=COMMENT_START;
 	}else if(strCaseEq("#include",name)){
@@ -418,6 +421,7 @@ ErrorCode addAction(Program* prog,Action a){
 			case LABEL_DEF:
 			case MACRO_START:
 			case MACRO_END:
+			case BREAKPOINT:
 				break;
 			}
 		}else if(a.type==LOAD_INT){
@@ -634,6 +638,7 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 			case JUMPIF:
 			case ROT:
 			case FLIP:
+			case BREAKPOINT:
 				if(save&1){
 					ErrorCode res=addAction(prog,a);
 					if(res){
@@ -1038,6 +1043,7 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,String errPath,Str
 						case JUMPIF:
 						case ROT:
 						case FLIP:
+						case BREAKPOINT:
 							if(saveToken&1){
 								if(state==READ_MACRO_ACTION){
 									err.errCode=addAction(&tmpMacro,a);
@@ -1135,6 +1141,7 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,String errPath,Str
 			case JUMPIF:
 			case ROT:
 			case FLIP:
+			case BREAKPOINT:
 				if(saveToken&1){
 					err.errCode=addAction(prog,a);
 					if(err.errCode){
@@ -1274,34 +1281,6 @@ errorCleanup:
 	return err;
 }
 
-
-const char* typeToStr(ActionType t){
-	switch(t){
-		case INVALID:return "INVALID";
-		case LOAD_INT:return "LOAD";
-		case SWAP:return "SWAP";
-		case LOAD:return "DEREF";
-		case STORE:return "STORE";
-		case JUMPIF:return "JUMPIF";
-		case ROT:return "ROT";
-		case FLIP:return "FLIP";
-
-		case COMMENT_START:return "IGNORE_START";
-		case INCLUDE:return "INCLUDE";
-		case IFDEF:return "IFDEF";
-		case IFNDEF:return "IFNDEF";
-		case ELSE:return "ELSE";
-		case ENDIF:return "ENDIF";
-		case UNDEF:return "UNDEF";
-		case LABEL_DEF:return "LABEL_DEF";
-		case LABEL:return "LABEL";
-		case MACRO_START:return "MACRO_START";
-		case MACRO_END:return "END";
-	}
-	assert(false&&"invalid value for ActionType");
-	return NULL;
-}
-
 uint64_t readWrapper(uint64_t fd,char* buffer,uint64_t* count){
 	ssize_t numRead=read(fd,buffer,*count);
 	if(numRead<0){
@@ -1413,18 +1392,30 @@ ErrorCode memWrite(ProgState* state){
 
 //TODO? compile program to C?
 
-ErrorInfo runProgram(Program prog,ProgState* state){
+ErrorInfo runProgram(Program prog,ProgState* state,bool debug){//XXX debug struct
 	ErrorCode ioRes;
 	uint64_t tmp;
-	for(size_t ip=0;ip<prog.len;){
-		switch(prog.actions[ip].type){
+	for(;state->ip<prog.len;){
+		switch(prog.actions[state->ip].type){
 			case LABEL:
 				return (ErrorInfo){
 					.errCode=ERR_UNRESOLVED_LABEL,
-					.pos=prog.actions[ip].at?*prog.actions[ip].at:NULL_POS,
+					.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
+							NULL_POS,
 				};//unresolved label
 			case INVALID:
 				case INCLUDE:
+			case BREAKPOINT://XXX BREAK_LABEL-> named breakpoint
+				//XXX? allow disabling breakpoints at runtime
+				if(debug){//XXX remove breakpoints at compile-time if not in debug mode
+					return (ErrorInfo){
+						.errCode=ERR_BREAK,
+						.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
+								NULL_POS,
+					};
+				}
+				state->ip++;
+				break;
 			case COMMENT_START:
 			case LABEL_DEF:
 			case UNDEF:
@@ -1436,54 +1427,56 @@ ErrorInfo runProgram(Program prog,ProgState* state){
 			case MACRO_END:
 				return (ErrorInfo){
 					.errCode=ERR_UNRESOLVED_MACRO,
-					.pos=prog.actions[ip].at?*prog.actions[ip].at:NULL_POS,
+					.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:NULL_POS,
 				};//unresolved macro/label (un)definition
 			case FLIP://flip lowest bit
 				state->regA^=1;
-				ip++;
+				state->ip++;
 				break;
 			case ROT:;//bit rotation
-				int count=0x3f&(prog.actions[ip].data.asInt);
+				int count=0x3f&(prog.actions[state->ip].data.asInt);
 				state->regA=(state->regA>>count)|(state->regA<<(64-count));
-				ip++;
+				state->ip++;
 				break;
 			case SWAP:
 				tmp=state->regA;
 				state->regA=state->regB;
 				state->regB=tmp;
-				ip++;
+				state->ip++;
 				break;
 			case LOAD_INT:
-				state->regA=prog.actions[ip].data.asInt;
-				ip++;
+				state->regA=prog.actions[state->ip].data.asInt;
+				state->ip++;
 				break;
 			case LOAD:
 				state->regA=memRead(state,&ioRes);
 				if(ioRes){
 					return (ErrorInfo){
 						.errCode=ioRes,
-						.pos=prog.actions[ip].at?*prog.actions[ip].at:NULL_POS,
+						.pos=prog.actions[state->ip].at?
+								*prog.actions[state->ip].at:NULL_POS,
 					};
 				}
-				ip++;
+				state->ip++;
 				break;
 			case STORE:
 				ioRes=memWrite(state);
 				if(ioRes){
 					return (ErrorInfo){
 						.errCode=ioRes,
-						.pos=prog.actions[ip].at?*prog.actions[ip].at:NULL_POS,
+						.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
+								:NULL_POS,
 					};
 				}
-				ip++;
+				state->ip++;
 				break;
 			case JUMPIF:
 				if(state->regA&1){
-					tmp=ip+1;
-					ip=state->regB;
+					tmp=state->ip+1;
+					state->ip=state->regB;
 					state->regB=tmp;
 				}else{
-					ip++;
+					state->ip++;
 				}
 				break;
 		}
@@ -1498,6 +1491,9 @@ void printError(ErrorInfo err){
 	switch(err.errCode){
 	case ERR_MEM:
 		fputs("Memory Error\n",stderr);
+		break;
+	case ERR_BREAK:
+		fputs("Breakpoint\n",stderr);
 		break;
 	case ERR_IO:
 		fputs("IO Error\n",stderr);
@@ -1589,7 +1585,10 @@ int main(int argc,char** argv) {
 		return EXIT_FAILURE;
 	}
 	FILE* file=NULL;
+	char* path;
+	bool debug=false;
 	if(argc==2){
+		path=argv[1];
 		file=fopen(argv[1],"r");;
 		libPath=getDirFromPath((String){.chars=argv[0],.len=strlen(argv[0])});
 		//append DEF_LIB_DIR_NAME to libPath
@@ -1604,7 +1603,6 @@ int main(int argc,char** argv) {
 		libPath.len+=strlen(DEF_LIB_DIR_NAME);
 	}else{
 		bool needsLib=true;
-		bool debug=false;
 		for(int i=1;i<argc;i++){
 			if(strcmp(argv[i],"-lib")==0){
 				i++;//read next argument
@@ -1634,7 +1632,8 @@ int main(int argc,char** argv) {
 					printUsage();
 					return EXIT_FAILURE;
 				}
-				file=fopen(argv[i],"r");;
+				file=fopen(argv[i],"r");
+				path=argv[i];
 			}
 		}
 		if(file==NULL){
@@ -1645,13 +1644,12 @@ int main(int argc,char** argv) {
 		if(needsLib){
 			libPath=getDirFromPath((String){.chars=argv[0],.len=strlen(argv[0])});
 		}
-		(void) debug;//XXX introduce debug-mode
 	}
 	if(!file){
-		fprintf(stderr,"File %s not found",argv[1]);
+		fprintf(stderr,"File %s not found",path);
 		return EXIT_FAILURE;
 	}
-	String filePath={.chars=argv[1],.len=strlen(argv[1])};
+	String filePath={.chars=path,.len=strlen(path)};
 	//for debug purposes
 	printf("root: %.*s\n",(int)libPath.len,libPath.chars);
 	Program prog;
@@ -1682,6 +1680,7 @@ int main(int argc,char** argv) {
 
 	printf("compiled: %"PRIu64" actions \n",(uint64_t)prog.len);
 	ProgState initState={
+			.ip=0,
 			.regA=0,
 			.regB=0,
 			.stackMem = malloc(STACK_MEM_SIZE * sizeof(uint64_t)),
@@ -1693,7 +1692,17 @@ int main(int argc,char** argv) {
 		return EXIT_FAILURE;
 	}
 	fflush(stdout);
-	res=runProgram(prog,&initState);
+	if(debug){
+		do{
+			res=runProgram(prog,&initState,debug);
+			if(res.errCode==ERR_BREAK){
+				printError(res);
+				initState.ip++;//increase ip after break
+			}
+		}while(res.errCode==ERR_BREAK);
+	}else{
+		res=runProgram(prog,&initState,debug);
+	}
 	if(res.errCode){
 		fprintf(stderr,"Error while executing Program\n");
 		printError(res);

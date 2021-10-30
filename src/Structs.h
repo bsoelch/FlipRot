@@ -47,6 +47,7 @@ typedef struct{
 
 typedef enum{
 NO_ERR=0,
+ERR_BREAK,
 
 ERR_MEM,
 ERR_IO,
@@ -97,6 +98,8 @@ typedef enum{
 	JUMPIF,//swaps B with the current code position if A&1 is true
 	ROT,//rotates the bits of A 1 to the right
 	FLIP,//flips the lowest bit in A
+	//debug commands
+	BREAKPOINT,
 	//compiler commands
 	COMMENT_START,//start of comment
 	IFDEF,//conditional statements on labels
@@ -152,6 +155,8 @@ typedef struct{
 }Heap;
 
 typedef struct{
+	uint64_t ip;
+
 	uint64_t regA;
 	uint64_t regB;
 
