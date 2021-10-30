@@ -43,6 +43,7 @@ typedef enum{
 	READ_UNDEF,//read identifier for undef
 	READ_IFDEF,//read identifier for ifdef
 	READ_IFNDEF,//read identifier for ifndef
+	READ_BREAKPOINT,//read label for breakpoint
 } ReadState;
 
 //directory of this executable
@@ -69,7 +70,6 @@ void freeMacro(Macro* m){
 			case ENDIF:
 			case MACRO_START:
 			case MACRO_END:
-			case BREAKPOINT:
 				break;//no pointer in data
 			case INCLUDE:
 			case IFDEF:
@@ -77,6 +77,7 @@ void freeMacro(Macro* m){
 			case UNDEF:
 			case LABEL:
 			case LABEL_DEF:
+			case BREAKPOINT:
 				free(m->actions[i].data.asString.chars);
 			}
 		}
@@ -161,8 +162,9 @@ Action loadAction(String name,CodePos pos){
 		ret.type=STORE;
 	}else if(strCaseEq("JUMPIF",name)){
 		ret.type=JUMPIF;
-	}else if(strCaseEq("#break",name)){//breakpoint
+	}else if(strCaseEq("#breakpoint",name)){//breakpoint
 		ret.type=BREAKPOINT;
+		ret.data.asString=(String){.len=0,.chars=NULL};
 	}else if(strCaseEq("#_",name)){//comment
 		ret.type=COMMENT_START;
 	}else if(strCaseEq("#include",name)){
@@ -192,7 +194,6 @@ Action loadAction(String name,CodePos pos){
 	// #flag -> compiler label for ifdef, cannot be dereferenced
 	// #ignore -> ignores int-overwrite error
 	// #const -> integer constant
-	// #break_lable -> labeled-breakpoint
 	return ret;
 }
 
@@ -827,6 +828,7 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 							}
 						}
 						break;
+					case READ_BREAKPOINT:
 					case READ_LABEL:
 					case READ_IFDEF:
 					case READ_IFNDEF:
@@ -911,6 +913,22 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 							name.len=0;
 							state=READ_MACRO_ACTION;//name is handled at end of macro
 							break;
+						case READ_BREAKPOINT:;
+							Action a=(Action){.type=BREAKPOINT,
+								.data.asString=name,
+								.at=makePosPtr(err.pos)};
+							if(prevState==READ_ACTION){
+								err.errCode = addAction(prog,a,debug);
+							}else{
+								err.errCode = addAction(&tmpMacro,a,debug);
+							}
+							if(err.errCode){
+								goto errorCleanup;
+							}
+							name.chars=NULL;//unlink to prevent double free
+							name.len=0;
+							state=prevState;
+							break;
 						default:
 							assert(0&&"unreachable");
 						}
@@ -984,6 +1002,12 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 								state=READ_LABEL;
 							}
 							break;
+						case BREAKPOINT:
+							if(saveToken&1){
+								prevState=state;
+								state=READ_BREAKPOINT;
+							}
+							break;
 						case MACRO_START:
 							if(saveToken&1){
 								if(state==READ_ACTION){
@@ -1050,7 +1074,6 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 						case JUMPIF:
 						case ROT:
 						case FLIP:
-						case BREAKPOINT:
 							if(saveToken&1){
 								if(state==READ_MACRO_ACTION){
 									err.errCode=addAction(&tmpMacro,a,debug);
@@ -1108,19 +1131,16 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 				if_count--;
 				saveToken>>=1;
 				break;
-			case INCLUDE:
-			case COMMENT_START://unfinished label/undef/comment
+			case COMMENT_START:
+			case INCLUDE://unfinished identifier for macro/label/undef/break
 			case UNDEF:
 			case LABEL_DEF:
+			case BREAKPOINT:
+			case MACRO_START:
 				if(saveToken&1){
 					err.errCode=ERR_UNFINISHED_IDENTIFER;
 					goto errorCleanup;
-				}break;
-			case MACRO_START://unfinished macro
-				if(saveToken&1){
-					err.errCode=ERR_UNFINISHED_MACRO;
-					goto errorCleanup;
-				}break;
+				}break;//unfinished macro
 			case MACRO_END://unexpected end
 				if(saveToken&1){
 					err.errCode=ERR_UNEXPECTED_MACRO_END;
@@ -1148,7 +1168,6 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 			case JUMPIF:
 			case ROT:
 			case FLIP:
-			case BREAKPOINT:
 				if(saveToken&1){
 					err.errCode=addAction(prog,a,debug);
 					if(err.errCode){
@@ -1177,15 +1196,40 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 			name.chars=NULL;//unlink to prevent double free
 			name.len=0;
 			break;
-		case READ_UNDEF:
+		case READ_UNDEF://XXX merge identifier reads, FIXME no check for invalid ids
 			if(prevState==READ_MACRO_ACTION){
 				err.errCode=ERR_UNFINISHED_MACRO;
 				goto errorCleanup;//unfinished macro
+			}
+			name=copyString(t);
+			if(name.len>0&&name.chars==NULL){
+				err.errCode=ERR_MEM;
+				goto errorCleanup;
 			}
 			Mapable prevVal=mapPut(macroMap,name,
 					(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
 			if(prevVal.type==MAPABLE_NONE&&prevVal.value.asPos!=0){
 				err.errCode=prevVal.value.asPos;
+				goto errorCleanup;
+			}
+			name.chars=NULL;//unlink to prevent double free
+			name.len=0;
+			break;
+		case READ_BREAKPOINT:
+			name=copyString(t);
+			if(name.len>0&&name.chars==NULL){
+				err.errCode=ERR_MEM;
+				goto errorCleanup;
+			}
+			Action a=(Action){.type=BREAKPOINT,
+				.data.asString=name,
+				.at=makePosPtr(err.pos)};
+			if(prevState==READ_ACTION){
+				err.errCode = addAction(prog,a,debug);
+			}else{
+				err.errCode = addAction(&tmpMacro,a,debug);
+			}
+			if(err.errCode){
 				goto errorCleanup;
 			}
 			name.chars=NULL;//unlink to prevent double free
@@ -1589,9 +1633,23 @@ ErrorInfo debugProgram(Program prog,ProgState* initState){
 			.maxSteps=SIZE_MAX
 	};
 	do{
+		//debug commands:
+		// enable <breakpointId>
+		// disable <breakpointId>
+		// step1
+		// step <count>
+		// ? breakAt <command>
+		// mem <off> <len>
+		// sys_regs
 		res=runProgram(prog,initState,&debug);
 		if(res.errCode==ERR_BREAK){
-			printError(res);
+			String bp_name=prog.actions[initState->ip].data.asString;
+			printf("\n break_point \"%.*s\" in line:%"PRIu64", pos:%"PRIu64" in %.*s\n"
+					" regA: %"PRIx64" regB: %"PRIx64" ip: %"PRIx64"\n",
+					(int)bp_name.len,bp_name.chars,
+					(uint64_t)res.pos.line,(uint64_t)res.pos.posInLine,
+					(int)res.pos.file.len,res.pos.file.chars,
+					initState->regA,initState->regB,initState->ip);
 			initState->ip++;//increase ip after break
 		}
 	}while(res.errCode==ERR_BREAK);
