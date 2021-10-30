@@ -168,6 +168,7 @@ typedef struct{
 	uint64_t sysReg [SYS_REG_COUNT];
 }ProgState;
 
+typedef struct MapImpl HashMap;
 typedef enum{
 	MAPABLE_NONE,
 	MAPABLE_POS,
@@ -193,6 +194,7 @@ typedef struct{
 
 typedef struct{
 	size_t maxSteps;
+	HashMap* activeBreaks;
 	//XXX breakAt ...
 }DebugInfo;
 

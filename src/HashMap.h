@@ -15,7 +15,6 @@
 static const Mapable NONE={.type=MAPABLE_NONE,.value.asPos=NO_ERR};
 static const Mapable MEM_ERROR={.type=MAPABLE_NONE,.value.asPos=ERR_MEM};
 
-typedef struct MapImpl HashMap;
 
 HashMap* createHashMap(size_t capacity);
 

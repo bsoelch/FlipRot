@@ -1196,7 +1196,13 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 			name.chars=NULL;//unlink to prevent double free
 			name.len=0;
 			break;
-		case READ_UNDEF://XXX merge identifier reads, FIXME no check for invalid ids
+		case READ_BREAKPOINT:
+		case READ_LABEL:
+		case READ_UNDEF:
+			if((t.len<1)||a.type!=INVALID){
+				err.errCode=ERR_INVALID_IDENTIFER;
+				goto errorCleanup;
+			}
 			if(prevState==READ_MACRO_ACTION){
 				err.errCode=ERR_UNFINISHED_MACRO;
 				goto errorCleanup;//unfinished macro
@@ -1206,35 +1212,44 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 				err.errCode=ERR_MEM;
 				goto errorCleanup;
 			}
-			Mapable prevVal=mapPut(macroMap,name,
+			switch(state){
+			case READ_BREAKPOINT:{
+				Action a=(Action){.type=BREAKPOINT,
+					.data.asString=name,
+					.at=makePosPtr(err.pos)};
+				if(prevState==READ_ACTION){
+					err.errCode = addAction(prog,a,debug);
+				}else{
+					err.errCode = addAction(&tmpMacro,a,debug);
+				}
+				if(err.errCode){
+					goto errorCleanup;
+				}
+				name.chars=NULL;//unlink to prevent double free
+				name.len=0;
+			}break;
+			case READ_LABEL:{
+				err.errCode=putLabel(prog,err.pos,macroMap,name);
+				if(err.errCode){
+					goto  errorCleanup;
+				}
+				name.chars=NULL;//unlink to prevent double free
+				name.len=0;
+			}break;
+			case READ_UNDEF:{
+				Mapable prevVal=mapPut(macroMap,name,
 					(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
-			if(prevVal.type==MAPABLE_NONE&&prevVal.value.asPos!=0){
-				err.errCode=prevVal.value.asPos;
-				goto errorCleanup;
+				if(prevVal.type==MAPABLE_NONE&&prevVal.value.asPos!=0){
+					err.errCode=prevVal.value.asPos;
+					goto errorCleanup;
+				}
+				name.chars=NULL;//unlink to prevent double free
+				name.len=0;
+			}break;
+			default:
+				assert(false&&"unreachable");
 			}
-			name.chars=NULL;//unlink to prevent double free
-			name.len=0;
-			break;
-		case READ_BREAKPOINT:
-			name=copyString(t);
-			if(name.len>0&&name.chars==NULL){
-				err.errCode=ERR_MEM;
-				goto errorCleanup;
-			}
-			Action a=(Action){.type=BREAKPOINT,
-				.data.asString=name,
-				.at=makePosPtr(err.pos)};
-			if(prevState==READ_ACTION){
-				err.errCode = addAction(prog,a,debug);
-			}else{
-				err.errCode = addAction(&tmpMacro,a,debug);
-			}
-			if(err.errCode){
-				goto errorCleanup;
-			}
-			name.chars=NULL;//unlink to prevent double free
-			name.len=0;
-			break;
+		break;
 		case READ_INCLUDE:
 			if(prevState==READ_MACRO_ACTION){
 				err.errCode=ERR_UNFINISHED_MACRO;
@@ -1287,25 +1302,6 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 			}
 			assert(0&&"unimplemented");
 			break;
-		case READ_LABEL:
-			if(prevState==READ_MACRO_ACTION){
-				err.errCode=ERR_UNFINISHED_MACRO;
-				goto errorCleanup;//unfinished macro
-			}
-			name.chars=malloc(prev);
-			if(!name.chars){
-				err.errCode=ERR_MEM;
-				goto errorCleanup;
-			}
-			memcpy(name.chars,s,prev);
-			name.len=prev;
-			err.errCode=putLabel(prog,err.pos,macroMap,name);
-			if(err.errCode){
-				goto  errorCleanup;
-			}
-			name.chars=NULL;//unlink to prevent double free
-			name.len=0;
-		break;
 		case READ_MACRO_NAME:
 			err.errCode=ERR_UNFINISHED_MACRO;
 			goto errorCleanup;//unfinished macro
@@ -1456,13 +1452,16 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 				};//unresolved label
 			case INVALID:
 				case INCLUDE:
-			case BREAKPOINT://removing breakpoints is handled at compile-time
-				//XXX? allow disabling breakpoints at runtime
-				return (ErrorInfo){
-					.errCode=ERR_BREAK,
-					.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
-							NULL_POS,
-				};
+			case BREAKPOINT:
+				if(debug&&mapGet(debug->activeBreaks,prog.actions[state->ip].data.asString).type!=MAPABLE_NONE){
+					return (ErrorInfo){
+						.errCode=ERR_BREAK,
+						.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
+								NULL_POS,
+					};
+				}else{
+					state->ip++;
+				}
 				break;
 			case COMMENT_START:
 			case LABEL_DEF:
@@ -1627,11 +1626,19 @@ void printError(ErrorInfo err){
 	}
 }
 
-ErrorInfo debugProgram(Program prog,ProgState* initState){
+ErrorInfo debugProgram(Program prog,ProgState* state){
 	ErrorInfo res;
 	DebugInfo debug={
-			.maxSteps=SIZE_MAX
+		.maxSteps=SIZE_MAX,
+		.activeBreaks=createHashMap(1024)
 	};
+	if(!debug.activeBreaks){
+		return (ErrorInfo){
+			.errCode=ERR_UNRESOLVED_LABEL,
+			.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
+					NULL_POS,
+		};
+	}
 	do{
 		//debug commands:
 		// enable <breakpointId>
@@ -1641,16 +1648,16 @@ ErrorInfo debugProgram(Program prog,ProgState* initState){
 		// ? breakAt <command>
 		// mem <off> <len>
 		// sys_regs
-		res=runProgram(prog,initState,&debug);
+		res=runProgram(prog,state,&debug);
 		if(res.errCode==ERR_BREAK){
-			String bp_name=prog.actions[initState->ip].data.asString;
+			String bp_name=prog.actions[state->ip].data.asString;
 			printf("\n break_point \"%.*s\" in line:%"PRIu64", pos:%"PRIu64" in %.*s\n"
 					" regA: %"PRIx64" regB: %"PRIx64" ip: %"PRIx64"\n",
 					(int)bp_name.len,bp_name.chars,
 					(uint64_t)res.pos.line,(uint64_t)res.pos.posInLine,
 					(int)res.pos.file.len,res.pos.file.chars,
-					initState->regA,initState->regB,initState->ip);
-			initState->ip++;//increase ip after break
+					state->regA,state->regB,state->ip);
+			state->ip++;//increase ip after break
 		}
 	}while(res.errCode==ERR_BREAK);
 	return res;
