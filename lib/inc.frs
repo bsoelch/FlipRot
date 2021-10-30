@@ -24,9 +24,6 @@ _#
 #_ skip code section_#
 $$inc$$ swap 1 jumpif
 
-
-#_ TODO handle tmp_loop == UINT64_MAX _#
-
 #_ increments the value in var1 _#
 #label $$inc$$.inc 
 #undef $$inc$$.inc.loop

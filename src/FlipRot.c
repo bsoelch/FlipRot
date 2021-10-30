@@ -1580,8 +1580,6 @@ void printUsage(){
 	puts("-d <filename>");
 	puts("<filename> -lib <libDir> ");
 	puts("");
-	// -d <filename> => debug
-	// -lib <path> => set lib path
 }
 
 int main(int argc,char** argv) {

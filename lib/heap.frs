@@ -1,0 +1,151 @@
+#_ Heap manager 
+
+methods:
+ alloc: allocates memory
+ free:  frees     memory
+_#
+#include core
+#include inc
+#include add
+#include cmp
+
+#ifndef $$heap$$
+$$heap$$ swap 1 jumpif
+
+#def NULL                0 #enddef
+#def $$heap$$.prevEnd 0x08 #enddef
+#def $$heap$$.itr     0x10 #enddef
+#def $$heap$$.len     0x18 #enddef
+#def $$heap$$.ret     0x20 #enddef
+#def $$heap$$.first   0x28 #enddef
+#_ first usable address of the heap_#
+#def $$heap$$.start   0x40 #enddef
+#_ 
+For simplicity the current implementation uses a linked list to store memory chunks 
+Memory layout:
+0-0x37 constants
+[next]
+[prev]
+[len]
+[data]
+...
+[next]
+[prev]
+[len]
+[data]
+
+_#
+
+#def heap_reset
+#ifndef $$heap$$.initialized #label $$heap$$.initialized #endif
+#_ TODO ensure capacity_#
+$$heap$$.first swap 0 store
+NULL swap 0 store
+#enddef
+
+#def $$heap$$.prev_offset   8 #enddef
+#def $$heap$$.len_offset   16 #enddef
+#def $$heap$$.data_offset  24 #enddef
+
+
+
+
+#_ allocates memory in the heap
+ Input:  
+  var0 -> <len>
+ Uses:
+  var0, var1, var2,var3, tmp_ret, tmp_loop
+ Output: 
+  var0 -> ptr to mem-section with given length
+_#
+#label heap_alloc
+#_ algorithm in C:
+*itr=first
+prevEnd=start
+
+while((*itr)){
+ if((*itr)<prevEnd+len+3){
+  *((*itr)+8)=prevEnd
+  break;
+ }
+ prevEnd=(*itr+16)+*(*itr+16)+1
+ *itr=*(*itr)
+}
+if(!*itr){
+ ensureCap(prevEnd+len+3)
+}
+*prevEnd=*itr
+*itr=prevEnd
+*(prevEnd+8)=itr
+*(prevEnd+16)=len
+return prevEnd+24
+!! a store b => *a=b
+_#
+#undef heap_alloc.loop
+#undef heap_alloc.insert
+#undef heap_alloc.append
+#undef heap_alloc.create
+$$heap$$.ret swap store
+$$heap$$.len     swap var0  load store #_ store input in internal variables _#
+$$heap$$.itr     swap first load store #_ *itr=first _#
+$$heap$$.prevEnd swap start      store #_ prevEnd=start _#
+#label heap_alloc.loop #_ while _#
+var1 swap itr load store
+var2 swap 0        store
+heap_alloc.append swap eq jumpif #_ (*itr)!=0 _#
+
+var2 swap prevEnd      load store
+var1 swap $$heap$$.len load store
+add swap 1 jumpif 
+var2 swap var0         load store #_ prevEnd+len_#
+var1 swap 3                  store
+add swap 1 jumpif 
+var2 swap var0         load store #_ prevEnd+len+3_#
+var1 swap $$heap$$.itr load store
+heap_alloc.insert  swap lt jumpif #_ if (*itr)<prevEnd+len+3 _#
+
+var2 swap $$heap$$.len_offset load store 
+add swap 1 jumpif 
+var2 swap var0 load      store #_ (*itr+16)  _#
+var2 swap var0 load load store #_ *(*itr+16) _#
+add swap 1 jumpif 
+var0 load inc swap $$heap$$.prevEnd swap store #_ prevEnd=(*itr+16)+*(*itr+16)+1_#
+
+$$heap$$.itr load swap $$heap$$.itr load load store #_ *itr=*(*itr) _#
+
+heap_alloc.loop swap 1 jumpif
+#label heap_alloc.insert
+var1 swap $$heap$$.itr    load store
+var2 swap $$heap$$.prev_offset store  
+add swap 1 jumpif
+var0 load swap $$heap$$.prevEnd load store #_ TODO *((*itr)+8)=prevEnd_#
+heap_alloc.create swap 1 jumpif
+#label heap_alloc.append
+#_ TODO ensureCap(prevEnd+len+3) _#
+#label heap_alloc.create
+$$heap$$.prevEnd load  swap $$heap$$.itr load load store #_ *prevEnd=*itr _#
+$$heap$$.itr load swap store #_ *itr=prevEnd _#
+
+var2 swap $$heap$$.prevEnd load store
+var1 swap prev_offset      load store
+add  swap 1 jumpif
+var0 load load swap $$heap$$.itr load store #_ *(prevEnd+8)=itr _#
+var1 swap len_offset       load store
+add  swap 1 jumpif
+var0 load load swap $$heap$$.len load store #_ *(prevEnd+16)=len _#
+var1 swap data_offset      load store
+add  swap 1 jumpif #_ return prevEnd+24 _#
+
+#undef heap.alloc.loop
+#undef heap.alloc.insert
+#undef heap.alloc.append
+#undef heap.alloc.create
+$$heap$$.ret  load swap 1 jumpif
+#_ endof heap_alloc _#
+
+#_ TODO heap_free _#
+
+
+#label $$heap$$
+heap_reset
+#endif
