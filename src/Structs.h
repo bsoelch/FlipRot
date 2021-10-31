@@ -194,7 +194,7 @@ typedef struct{
 
 typedef struct{
 	size_t maxSteps;
-	HashMap* activeBreaks;
+	HashMap* breakFlips;
 	//XXX breakAt ...
 }DebugInfo;
 

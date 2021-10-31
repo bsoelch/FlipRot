@@ -312,7 +312,7 @@ size_t jumpAddress(Program* prog){
 
 //returns true if and error occurs
 ErrorCode putLabel(Program* prog,CodePos pos,HashMap* map,String label){
-	uint64_t target = jumpAddress(prog);
+	size_t target = jumpAddress(prog);
 	Mapable prev=mapPut(map,label,
 			(Mapable) { .type = MAPABLE_POS,.value.asPos = target });
 	switch(prev.type){
@@ -1409,18 +1409,20 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 			case INVALID:
 				case INCLUDE:
 			case BREAKPOINT:
-				//XXX depending on first char of name enabled/disabled by default?
+				//depending on first char of name enabled/disabled by default
 				//normally enabled, starting with '!' inverted
-				if(debug&&mapGet(debug->activeBreaks,
-						prog.actions[state->ip].data.asString).type!=MAPABLE_NONE){
-					return (ErrorInfo){
-						.errCode=ERR_BREAK,
-						.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
-								NULL_POS,
-					};
-				}else{
-					state->ip++;
+				if(debug){
+					bool flip=prog.actions[state->ip].data.asString.chars[0]=='!';
+					if(flip^(mapGet(debug->breakFlips,
+						prog.actions[state->ip].data.asString).type==MAPABLE_NONE)){
+						return (ErrorInfo){
+							.errCode=ERR_BREAK,
+							.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
+									NULL_POS,
+						};
+					}
 				}
+				state->ip++;
 				break;
 			case COMMENT_START:
 			case LABEL_DEF:
@@ -1547,6 +1549,7 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 				}else{
 					tmp=state->sysReg[regID];
 					state->sysReg[regID]=state->regA;
+					//read value only if output available
 					if(state->sysReg[0]&(1<<regID)){
 						state->sysReg[0]^=(1<<regID);//clear readable flag
 						state->regA=tmp;
@@ -1658,9 +1661,9 @@ ErrorInfo debugProgram(Program prog,ProgState* state){
 	ErrorInfo res;
 	DebugInfo debug={
 		.maxSteps=SIZE_MAX,
-		.activeBreaks=createHashMap(1024)
+		.breakFlips=createHashMap(1024)
 	};
-	if(!debug.activeBreaks){
+	if(!debug.breakFlips){
 		return (ErrorInfo){
 			.errCode=ERR_UNRESOLVED_LABEL,
 			.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
