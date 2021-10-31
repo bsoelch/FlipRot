@@ -1564,7 +1564,15 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 						if(state->REG_IO_TARGET<MEM_STACK_START){
 							uint64_t count=MEM_STACK_START-state->REG_IO_TARGET;
 							count=count>state->REG_IO_COUNT?state->REG_IO_COUNT:count;
-							//TODO getData from heap
+							ioRes=heapRead(state->heap,state->REG_IO_TARGET,buffer,count);
+							if(ioRes){
+								free(buffer);
+								return (ErrorInfo){
+									.errCode=ioRes,
+									.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
+											:NULL_POS,
+								};
+							}
 						}
 						state->regA=writeWrapper(state->REG_IO_FD,buffer,
 								state->PTR_REG_IO_COUNT);
