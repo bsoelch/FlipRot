@@ -119,6 +119,7 @@ static ErrorCode createSection(Heap* heap, uint64_t size){
 					heap->sections[heap->len-1].len;
 		}
 		heap->sections[heap->len].len=size;
+		heap->len++;
 		return NO_ERR;
 	}
 	return ERR_HEAP_OUT_OF_MEMORY;
