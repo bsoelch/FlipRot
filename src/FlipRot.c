@@ -117,6 +117,62 @@ int strCaseEq(const char* cStr,String str){
 	}
 	return cStr[i]=='\0';
 }
+
+static int digitFromChar(char c){
+	if(c>='0'&&c<='9'){
+		return c-'0';
+	}else if(c>='A'&&c<='Z'){
+		return c-'A'+10;
+	}else if(c>='a'&&c<='z'){
+		return c-'a'+10;
+	}else{
+		return -1;
+	}
+}
+uint64_t u64fromStr(String str,bool* isU64){
+	if(str.len==0){
+		*isU64=false;
+		return 0;
+	}
+	uint64_t ret=0;
+	int off=0,base=10,d;
+	if(str.len>1&&str.chars[0]=='0'){
+		switch(str.chars[1]){
+		case 'X':
+		case 'x':
+			base=16;
+			off=2;
+			break;
+		case 'B':
+		case 'b':
+			base=2;
+			off=2;
+			break;
+		}
+	}// #hex conflicts with #def
+	if(off>=str.len){
+		*isU64=false;
+		return 0;
+	}
+	//value of overflow protection
+	uint64_t maxVal=UINT64_MAX/base;
+	for(int i=off;i<str.len;i++){
+		d=digitFromChar(str.chars[i]);
+		if(d<0||d>=base){
+			*isU64=false;
+			return 0;
+		}
+		if(ret>maxVal){
+			*isU64=false;
+			return 0;
+		}
+		ret*=base;
+		ret+=d;
+	}
+	*isU64=true;
+	return ret;
+}
+
 String copyString(String source){
 	if(source.len==0){
 		return (String){.len=0,.chars=NULL};
@@ -157,9 +213,9 @@ static const CodePos NULL_POS={
 
 Action loadAction(String name,CodePos pos){
 	Action ret={.type=INVALID,.data.asInt=0,.at=makePosPtr(pos)};
-	char* tail=name.chars+name.len;
-	long long ll=strtoull(name.chars,&tail,0);
-	if(tail==name.chars+name.len){
+	bool isU64=false;
+	uint64_t ll=u64fromStr(name,&isU64);
+	if(isU64){
 		ret.type=LOAD_INT;
 		ret.data.asInt=ll;
 	}else if(strCaseEq("FLIP",name)){
@@ -854,7 +910,7 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 					case READ_IFNDEF:
 					case READ_UNDEF:
 					case READ_MACRO_NAME:
-						if((t.len<1)||(loadAction(t,err.pos).type!=INVALID)){
+						if((t.len<1)||(a.type!=INVALID)){
 							err.errCode=ERR_INVALID_IDENTIFER;
 							goto errorCleanup;
 						}
@@ -1730,7 +1786,7 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 	uint64_t memOff;
 	MemDisplayMode memMode;
 	MemDisplay** itr;
-	char* tail;
+	bool isU64;
 	while((c=getc(stdin))!=EOF){
 		if(isspace(c)){
 			if(r==0){
@@ -1738,11 +1794,10 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 			str.len=i;
 			if(i>0){
 				switch(state){
-				case READ_STEP_COUNT:
-					tail=str.chars+str.len;
-					long long ll=strtoull(str.chars,&tail,0);
+				case READ_STEP_COUNT:;
+					uint64_t ll=u64fromStr(str,&isU64);
 					state=READ_COMMAND;
-					if(tail==str.chars+str.len){
+					if(isU64){
 						ll+=info->maxSteps;//overflow protection
 						info->maxSteps=ll>info->maxSteps?ll:SIZE_MAX;
 						break;
@@ -1816,9 +1871,8 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 					state=READ_COMMAND;
 					break;
 				case READ_MEM_NAME:
-					tail=str.chars+str.len;
-					memOff=strtoull(str.chars,&tail,0);
-					if(tail==str.chars+str.len){
+					memOff=u64fromStr(str,&isU64);
+					if(isU64){
 						memName=(String){.len=0,.chars=NULL};
 						state=READ_MEM_LEN;
 					}else{
@@ -1831,9 +1885,8 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 					}
 					break;
 				case READ_MEM_OFF:
-					tail=str.chars+str.len;
-					memOff=strtoull(str.chars,&tail,0);
-					if(tail==str.chars+str.len){
+					memOff=u64fromStr(str,&isU64);
+					if(isU64){
 						state=READ_MEM_LEN;
 					}else{
 						printf("illegal input for mem-offset: %.*s\n",
@@ -1853,9 +1906,9 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 					mem->mode=memMode;
 					mem->addr=memOff;
 					mem->next=info->memDisplays;
-					char* tail=str.chars+str.len;
-					mem->count=strtoull(str.chars,&tail,0);
-					if(tail==str.chars+str.len){
+					bool isU64;
+					mem->count=u64fromStr(str,&isU64);
+					if(isU64){
 						info->memDisplays=mem;
 						state=READ_COMMAND;
 					}else{
