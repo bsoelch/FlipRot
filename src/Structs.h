@@ -46,7 +46,9 @@ typedef struct{
 
 typedef enum{
 NO_ERR=0,
-ERR_BREAK,
+ERR_BREAKPOINT,
+ERR_BREAK_STEP,
+ERR_BREAK_AT,
 
 ERR_MEM,
 ERR_IO,
@@ -156,12 +158,13 @@ typedef struct{
 
 typedef struct{
 	uint64_t ip;
+	bool jumped;
 
 	uint64_t regA;
 	uint64_t regB;
 
 	Heap heap;
-	char* stackMem;
+	char* stackMem;//XXX? make stackMem also dynamic
 	//registers of system calls,
 	//ordered in revere order sysReg[0] has the highest id
 	//sysReg[0] has the same id as MEM_SYS_CALL
@@ -196,6 +199,7 @@ typedef struct{
 	size_t maxSteps;
 	HashMap* breakFlips;
 	//XXX breakAt ...
+	//MemDisplays
 }DebugInfo;
 
 #endif /* STRUCTS_H_ */

@@ -28,6 +28,8 @@ static const int MAP_CAP=2048;
 static const int BUFFER_SIZE=2048;
 static const int INIT_CAP_PROG=16;
 
+static const int READ_DEBUG_INIT_CAP=128;
+
 static const char* DEF_LIB_DIR_NAME = "lib/";
 static const char* DEFAULT_FILE_EXT = ".frs";//flipRot-script
 
@@ -45,6 +47,16 @@ typedef enum{
 	READ_IFNDEF,//read identifier for ifndef
 	READ_BREAKPOINT,//read label for breakpoint
 } ReadState;
+
+typedef enum{
+	READ_COMMAND,
+	READ_STEP_COUNT,
+	READ_ENABLE_ID,
+	READ_DISABLE_ID,
+	READ_BREAK_AT_ID,
+	READ_MEM_NAME,
+	READ_UNREG_NAME,
+}DebugReadState;
 
 //directory of this executable
 String libPath;
@@ -1399,6 +1411,7 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 	ErrorCode ioRes;
 	uint64_t tmp;
 	for(;state->ip<prog.len;){
+		state->jumped=false;
 		switch(prog.actions[state->ip].type){
 			case LABEL:
 				return (ErrorInfo){
@@ -1416,13 +1429,12 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 					if(flip^(mapGet(debug->breakFlips,
 						prog.actions[state->ip].data.asString).type==MAPABLE_NONE)){
 						return (ErrorInfo){
-							.errCode=ERR_BREAK,
+							.errCode=ERR_BREAKPOINT,
 							.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
 									NULL_POS,
 						};
 					}
 				}
-				state->ip++;
 				break;
 			case COMMENT_START:
 			case LABEL_DEF:
@@ -1439,22 +1451,18 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 				};//unresolved macro/label (un)definition
 			case FLIP://flip lowest bit
 				state->regA^=1;
-				state->ip++;
 				break;
 			case ROT:;//bit rotation
 				int count=0x3f&(prog.actions[state->ip].data.asInt);
 				state->regA=(state->regA>>count)|(state->regA<<(64-count));
-				state->ip++;
 				break;
 			case SWAP:
 				tmp=state->regA;
 				state->regA=state->regB;
 				state->regB=tmp;
-				state->ip++;
 				break;
 			case LOAD_INT:
 				state->regA=prog.actions[state->ip].data.asInt;
-				state->ip++;
 				break;
 			case LOAD:
 				state->regA=memRead(state,&ioRes);
@@ -1465,7 +1473,6 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 								*prog.actions[state->ip].at:NULL_POS,
 					};
 				}
-				state->ip++;
 				break;
 			case STORE:
 				ioRes=memWrite(state);
@@ -1476,15 +1483,13 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 								:NULL_POS,
 					};
 				}
-				state->ip++;
 				break;
 			case JUMPIF:
 				if(state->regA&1){
 					tmp=state->ip+1;
 					state->ip=state->regB;
 					state->regB=tmp;
-				}else{
-					state->ip++;
+					state->jumped=true;
 				}
 				break;
 			case SYSTEM:;
@@ -1555,18 +1560,20 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 						state->regA=tmp;
 					}
 				}
-				state->ip++;
 				break;
 		}
 		if(debug){
 			debug->maxSteps--;
 			if(debug->maxSteps==0){
 				return (ErrorInfo){
-					.errCode=ERR_BREAK,
+					.errCode=ERR_BREAK_STEP,
 					.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
 							NULL_POS,
 				};
 			}
+		}//no else
+		if(!state->jumped){
+			state->ip++;
 		}
 	}
 	return (ErrorInfo){
@@ -1580,8 +1587,14 @@ void printError(ErrorInfo err){
 	case ERR_MEM:
 		fputs("Memory Error\n",stderr);
 		break;
-	case ERR_BREAK:
+	case ERR_BREAKPOINT:
 		fputs("Breakpoint\n",stderr);
+		break;
+	case ERR_BREAK_STEP:
+		fputs("reached max step count\n",stderr);
+		break;
+	case ERR_BREAK_AT:
+		fputs("reached break condition\n",stderr);
 		break;
 	case ERR_IO:
 		fputs("IO Error\n",stderr);
@@ -1657,6 +1670,184 @@ void printError(ErrorInfo err){
 	}
 }
 
+
+//debug commands:
+// step
+// step <count>
+// enable <breakpointId>
+// disable <breakpointId>
+// breakAt <command>
+// sys_regs
+// mem (<name>) <off> <len>
+// unregister <name>
+/**
+ * reads a line from the console and parses the debug-commands,
+ * returns the char-code of the first line-separator that got detected
+ * */
+static int readDebugCommands(DebugInfo* info,char prevLineSep){
+	fputs("> ",stdout);
+	fflush(stdout);
+	char* buffer=malloc(READ_DEBUG_INIT_CAP);
+	size_t i=0,buffer_cap=READ_DEBUG_INIT_CAP;
+	int c,r=0;
+	String str;
+	DebugReadState state=READ_COMMAND;
+	bool readInput=false;
+	info->maxSteps=0;
+	while((c=getc(stdin))!=EOF){
+		if(isspace(c)){
+			if(r==0){
+			str.chars=buffer;
+			str.len=i;
+			if(i>0){
+				switch(state){
+				case READ_STEP_COUNT:;
+					char* tail=str.chars+str.len;
+					long long ll=strtoull(str.chars,&tail,0);
+					state=READ_COMMAND;
+					if(tail==str.chars+str.len){
+						ll+=info->maxSteps;//overflow protection
+						info->maxSteps=ll>info->maxSteps?ll:SIZE_MAX;
+						break;
+					}else{
+						if(info->maxSteps<SIZE_MAX)
+							info->maxSteps++;
+						//fall-though to read command
+					}
+					//no break
+				case READ_COMMAND:
+					if(strCaseEq("s",str)||strCaseEq("step",str)){//step
+						state=READ_STEP_COUNT;
+					}else if(strCaseEq("enable",str)){//enable
+						state=READ_ENABLE_ID;
+					}else if(strCaseEq("disable",str)){//disable
+						state=READ_DISABLE_ID;
+					}else if(strCaseEq("breakAt",str)){//breakAt
+						state=READ_BREAK_AT_ID;
+					}else if(strCaseEq("sys_regs",str)){//sys_regs
+						//TODO sys_regs
+						assert(false&&"unimplemented");
+					}else if(strCaseEq("run",str)||strCaseEq("r",str)){//run
+						info->maxSteps=SIZE_MAX;
+					}else if(strCaseEq("quit",str)||strCaseEq("q",str)
+							||strCaseEq("exit",str)||strCaseEq("x",str)){//quit
+						//TODO quit
+						assert(false&&"unimplemented");
+					}else if(strCaseEq("?",str)||strCaseEq("help",str)){//help
+						//TODO print help-text
+					}else if(strCaseEq("mem",str)){//mem
+						state=READ_MEM_NAME;
+					}else if(strCaseEq("unregister",str)){//unregister
+						state=READ_UNREG_NAME;
+					}else{
+						printf("unknown debug command: %.*s\n",(int)str.len,str.chars);
+						r=-1;
+						break;
+					}
+					break;
+				case READ_DISABLE_ID:
+				case READ_ENABLE_ID:
+					if((str.chars[0]=='!')==(state==READ_ENABLE_ID)){
+						printf("Debug:add \"%.*s\" %c,%i",(int)str.len,str.chars,
+								str.chars[0],state);
+
+						//add to breakFlips
+						String clone=copyString(str);
+						if(clone.len>0&&clone.chars==NULL){
+							puts("memory error while parsing");
+							r=-1;
+							break;
+						}
+						Mapable ret=mapPut(info->breakFlips,clone,
+								(Mapable){.type=MAPABLE_POS,.value.asPos=1});
+						if(ret.type==MAPABLE_NONE&&ret.value.asPos!=0){
+							puts("memory error while parsing");
+							r=-1;
+							break;
+						}
+					}else{//remove from breakFlips
+						printf("Debug:remove \"%.*s\" %c,%i",(int)str.len,str.chars,
+								str.chars[0],state);
+
+						Mapable ret=mapPut(info->breakFlips,str,
+								(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
+						if(ret.type==MAPABLE_NONE&&ret.value.asPos!=0){
+							puts("memory error while parsing");
+							r=-1;
+							break;
+						}
+					}
+					state=READ_COMMAND;
+					break;
+				case READ_BREAK_AT_ID:
+					//TODO breakAt ID
+					assert(false&&"unimplemented");
+					state=READ_COMMAND;
+					break;
+				case READ_MEM_NAME:
+					//TODO readMemName
+					assert(false&&"unimplemented");
+					state=READ_COMMAND;
+					break;
+				//readMemOff
+				//readMemTo
+				case READ_UNREG_NAME:
+					//TODO readMemName
+					assert(false&&"unimplemented");
+					state=READ_COMMAND;
+					break;
+				}
+			}
+			i=0;
+			}
+			if(c=='\r'){
+				r=r==0?c:r;
+				break;
+			}else if(c=='\n'){
+				r=r==0?c:r;
+				if(readInput&&prevLineSep!='\r'){
+					break;//continue reading if \r is directly followed by \n
+				}
+			}
+		}else if(r>=0){
+			if(i>=buffer_cap){
+				char* tmp=realloc(buffer,2*buffer_cap);
+				if(!tmp){
+					puts("memory error while parsing");
+					r=-1;
+					continue;//continue reading until end of line
+				}
+				buffer=tmp;
+				buffer_cap*=2;
+			}
+			buffer[i++]=c;
+		}
+		readInput=true;
+	}
+	if(r<0){
+		r=0;
+	}else{
+		switch(state){
+		case READ_COMMAND:
+			break;
+		case READ_STEP_COUNT:
+			if(info->maxSteps<SIZE_MAX)
+				info->maxSteps++;
+			break;
+		case READ_ENABLE_ID:
+		case READ_DISABLE_ID:
+		case READ_BREAK_AT_ID:
+		case READ_MEM_NAME:
+		case READ_UNREG_NAME:
+			r=0;
+			puts("missing arguments");
+			break;
+		}
+	}
+	free(buffer);
+	return r;
+}
+
 ErrorInfo debugProgram(Program prog,ProgState* state){
 	ErrorInfo res;
 	DebugInfo debug={
@@ -1671,31 +1862,40 @@ ErrorInfo debugProgram(Program prog,ProgState* state){
 		};
 	}
 	puts("Debugging program:");
+	int r=0;
+	bool isBreak;
+	String bp_name;
 	do{
-		//fputs("> ",stdout);
-		//XXX getLine
-
-		//debug commands:
-		// enable <breakpointId>
-		// disable <breakpointId>
-		// step1
-		// step <count>
-		// breakAt <command>
-		// sys_regs
-		// mem (<name>) <off> <len>
-		// unregister <name>
-		res=runProgram(prog,state,&debug);
-		if(res.errCode==ERR_BREAK){
-			String bp_name=prog.actions[state->ip].data.asString;
-			printf("\n break_point \"%.*s\" in line:%"PRIu64", pos:%"PRIu64" in %.*s\n"
-					" regA: %"PRIx64" regB: %"PRIx64" ip: %"PRIx64"\n",
-					(int)bp_name.len,bp_name.chars,
-					(uint64_t)res.pos.line,(uint64_t)res.pos.posInLine,
-					(int)res.pos.file.len,res.pos.file.chars,
-					state->regA,state->regB,state->ip);
-			state->ip++;//increase ip after break
+		do{
+			r=readDebugCommands(&debug,r);
+		}while(r==0);
+		if(debug.maxSteps>0){
+			res=runProgram(prog,state,&debug);
+			isBreak=false;
+			if(res.errCode==ERR_BREAKPOINT){
+				isBreak=true;
+				bp_name=prog.actions[state->ip].data.asString;
+				printf("\n break_point \"%.*s\"",(int)bp_name.len,bp_name.chars);
+			}else if(res.errCode==ERR_BREAK_STEP){
+				isBreak=true;
+				printf("\n reached step count");
+			}else if(res.errCode==ERR_BREAK_AT){
+				isBreak=true;
+				assert(false&&"unimplemented");//TODO handle conditional break
+				printf("\n fulfilled break condition");
+			}
+			if(isBreak){
+				printf(" in line:%"PRIu64", pos:%"PRIu64" in %.*s\n"
+						" regA: %"PRIx64" regB: %"PRIx64" ip: %"PRIx64"\n",
+						(uint64_t)res.pos.line,(uint64_t)res.pos.posInLine,
+						(int)res.pos.file.len,res.pos.file.chars,
+						state->regA,state->regB,state->ip);
+				if(!state->jumped){
+					state->ip++;//increase ip after break
+				}
+			}
 		}
-	}while(res.errCode==ERR_BREAK);
+	}while(isBreak);
 	return res;
 }
 
