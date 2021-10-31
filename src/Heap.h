@@ -15,8 +15,8 @@
 Heap createHeap(size_t initSize);
 void freeHeap(Heap* heap);
 
-uint64_t heapRead(Heap heap, uint64_t addr,ErrorCode* err);
-ErrorCode heapWrite(Heap heap,uint64_t addr,uint64_t data);
+ErrorCode heapRead(Heap heap, uint64_t addr,char* res,size_t count);
+ErrorCode heapWrite(Heap heap,uint64_t addr,char* data,size_t count);
 
 //XXX block read/write
 //XXX? memmove

@@ -195,11 +195,31 @@ typedef struct{
 	}as;
 }ActionOrError;
 
+
+typedef enum{
+	DISPLAY_BYTE,
+	DISPLAY_CHAR,
+	DISPLAY_INT16,
+	DISPLAY_INT32,
+	DISPLAY_INT64
+}MemDisplayMode;
+typedef struct MemDisplayImpl MemDisplay;
+
+struct MemDisplayImpl{
+	String label;
+	bool first;
+	MemDisplayMode mode;//1,2,4,8
+	uint64_t addr;
+	size_t count;
+	MemDisplay* next;
+};
+
 typedef struct{
 	size_t maxSteps;
 	HashMap* breakFlips;
 	//XXX breakAt ...
-	//MemDisplays
+	bool showSysRegs;
+	MemDisplay* memDisplays;
 }DebugInfo;
 
 #endif /* STRUCTS_H_ */

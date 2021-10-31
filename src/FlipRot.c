@@ -55,6 +55,8 @@ typedef enum{
 	READ_DISABLE_ID,
 	READ_BREAK_AT_ID,
 	READ_MEM_NAME,
+	READ_MEM_OFF,
+	READ_MEM_LEN,
 	READ_UNREG_NAME,
 }DebugReadState;
 
@@ -1371,38 +1373,60 @@ uint64_t writeWrapper(uint64_t fd,char* buffer,uint64_t* count){
 	}
 }
 
-//reads a value from memory
-//is an error occurs err is set to 1 otherwise err is set to 0
-uint64_t memRead(ProgState* state,ErrorCode* err){
-	if((state->regA&MEM_MASK_INVALID)!=0){
+
+char INT_IO_BUFFER [sizeof(uint64_t)];
+//count is assumed to be between 1 and 8 (inclusive)
+//reads 1-8 bytes from memory and stores the in the lower bytes of the return value
+//is an error occurs err is set to a nonzero value otherwise err is set to 0
+static uint64_t memReadInternal(ProgState* state,uint64_t addr,uint8_t count,ErrorCode* err){
+	char* off;
+	if((addr&MEM_MASK_INVALID)!=0){
 		*err=ERR_HEAP_ILLEGAL_ACCESS;
 		return 0;
-	}else if((state->regA&MEM_MASK_STACK)==MEM_STACK_START){
-		if(state->regA+sizeof(uint64_t)>MEM_SIZE){
+	}else if((addr&MEM_MASK_STACK)==MEM_STACK_START){
+		if(addr+sizeof(uint64_t)>MEM_SIZE){
 			*err=ERR_HEAP_ILLEGAL_ACCESS;
 			return 0;
 		}
 		*err=0;
-		//XXX special handling for BigEndian systems
-		return *((uint64_t*)(state->stackMem+(state->regA&STACK_ADDR_MASK)));
+		off=state->stackMem+(addr&STACK_ADDR_MASK);
+	}else{
+		off=INT_IO_BUFFER;
+		*err=heapRead(state->heap,addr,off,count);
+		if(*err){
+			return 0;
+		}
 	}
-	return heapRead(state->heap,state->regA,err);
+	uint64_t ret=0;
+	for(int i=0;i<count;i++){
+		ret|=((uint64_t)(off[i]&0xffULL))<<8*i;
+	}
+	return ret;
+}
+//reads a value from memory
+//is an error occurs err is set to a nonzero value otherwise err is set to 0
+uint64_t memRead(ProgState* state,ErrorCode* err){
+	return memReadInternal(state,state->regA,8,err);
 }
 
 //writes a value to memory
-//is an error occurs the return value is 1 otherwise 0 is returned
+//is an error occurs the return value is a nonzero value otherwise 0 is returned
 ErrorCode memWrite(ProgState* state){
+	for(int i=0;i<sizeof(uint64_t);i++){
+		INT_IO_BUFFER[i]=(state->regA>>8*i)&0xff;
+	}
 	if((state->regB&MEM_MASK_INVALID)!=0){
 		return ERR_HEAP_ILLEGAL_ACCESS;
 	}else if((state->regB&MEM_MASK_STACK)==MEM_STACK_START){
 		if(state->regB+sizeof(uint64_t)>MEM_SIZE){
 			return ERR_HEAP_ILLEGAL_ACCESS;
 		}
-		//XXX special handling for BigEndian systems
-		*((uint64_t*)(state->stackMem+(state->regB&STACK_ADDR_MASK)))=state->regA;
+		memcpy(state->stackMem+(state->regB&STACK_ADDR_MASK),INT_IO_BUFFER,
+				sizeof(uint64_t));
 		return NO_ERR;
+	}else{
+		return heapWrite(state->heap,state->regB,INT_IO_BUFFER,sizeof(uint64_t));
 	}
-	return heapWrite(state->heap,state->regB,state->regA);
 }
 
 //TODO? compile program to C?
@@ -1694,6 +1718,11 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 	DebugReadState state=READ_COMMAND;
 	bool readInput=false;
 	info->maxSteps=0;
+	String memName;
+	uint64_t memOff;
+	MemDisplayMode memMode;
+	MemDisplay** itr;
+	char* tail;
 	while((c=getc(stdin))!=EOF){
 		if(isspace(c)){
 			if(r==0){
@@ -1701,8 +1730,8 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 			str.len=i;
 			if(i>0){
 				switch(state){
-				case READ_STEP_COUNT:;
-					char* tail=str.chars+str.len;
+				case READ_STEP_COUNT:
+					tail=str.chars+str.len;
 					long long ll=strtoull(str.chars,&tail,0);
 					state=READ_COMMAND;
 					if(tail==str.chars+str.len){
@@ -1725,8 +1754,7 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 					}else if(strCaseEq("breakAt",str)){//breakAt
 						state=READ_BREAK_AT_ID;
 					}else if(strCaseEq("sys_regs",str)){//sys_regs
-						//TODO sys_regs
-						assert(false&&"unimplemented");
+						info->showSysRegs=!info->showSysRegs;
 					}else if(strCaseEq("run",str)||strCaseEq("r",str)){//run
 						info->maxSteps=SIZE_MAX;
 					}else if(strCaseEq("quit",str)||strCaseEq("q",str)
@@ -1736,8 +1764,9 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 					}else if(strCaseEq("?",str)||strCaseEq("help",str)){//help
 						//TODO print help-text
 					}else if(strCaseEq("mem",str)){//mem
+						memMode=DISPLAY_INT64;//XXX commands for other modes
 						state=READ_MEM_NAME;
-					}else if(strCaseEq("unregister",str)){//unregister
+					}else if(strCaseEq("unregister",str)||strCaseEq("unreg",str)){//unregister
 						state=READ_UNREG_NAME;
 					}else{
 						printf("unknown debug command: %.*s\n",(int)str.len,str.chars);
@@ -1748,9 +1777,6 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 				case READ_DISABLE_ID:
 				case READ_ENABLE_ID:
 					if((str.chars[0]=='!')==(state==READ_ENABLE_ID)){
-						printf("Debug:add \"%.*s\" %c,%i",(int)str.len,str.chars,
-								str.chars[0],state);
-
 						//add to breakFlips
 						String clone=copyString(str);
 						if(clone.len>0&&clone.chars==NULL){
@@ -1766,9 +1792,6 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 							break;
 						}
 					}else{//remove from breakFlips
-						printf("Debug:remove \"%.*s\" %c,%i",(int)str.len,str.chars,
-								str.chars[0],state);
-
 						Mapable ret=mapPut(info->breakFlips,str,
 								(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
 						if(ret.type==MAPABLE_NONE&&ret.value.asPos!=0){
@@ -1785,15 +1808,68 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 					state=READ_COMMAND;
 					break;
 				case READ_MEM_NAME:
-					//TODO readMemName
-					assert(false&&"unimplemented");
-					state=READ_COMMAND;
+					tail=str.chars+str.len;
+					memOff=strtoull(str.chars,&tail,0);
+					if(tail==str.chars+str.len){
+						memName=(String){.len=0,.chars=NULL};
+						state=READ_MEM_LEN;
+					}else{
+						memName=copyString(str);
+						if(!memName.chars){
+							puts("memory error while parsing");
+							r=-1;
+						}
+						state=READ_MEM_OFF;
+					}
 					break;
-				//readMemOff
-				//readMemTo
+				case READ_MEM_OFF:
+					tail=str.chars+str.len;
+					memOff=strtoull(str.chars,&tail,0);
+					if(tail==str.chars+str.len){
+						state=READ_MEM_LEN;
+					}else{
+						printf("illegal input for mem-offset: %.*s\n",
+								(int)str.len,str.chars);
+						r=-1;
+					}
+				break;
+				case READ_MEM_LEN:;
+					MemDisplay* mem=malloc(sizeof(MemDisplay));
+					if(!mem){
+						puts("memory error while parsing");
+						r=-1;
+						break;
+					}
+					mem->label=memName;
+					mem->first=true;
+					mem->mode=memMode;
+					mem->addr=memOff;
+					mem->next=info->memDisplays;
+					char* tail=str.chars+str.len;
+					mem->count=strtoull(str.chars,&tail,0);
+					if(tail==str.chars+str.len){
+						info->memDisplays=mem;
+						state=READ_COMMAND;
+					}else{
+						printf("illegal input for mem-size: %.*s\n",
+								(int)str.len,str.chars);
+						r=-1;
+					}
+					break;
 				case READ_UNREG_NAME:
-					//TODO readMemName
-					assert(false&&"unimplemented");
+					itr=&info->memDisplays;
+					while(*itr){
+						if((*itr)->label.len==str.len&&
+							strncmp((*itr)->label.chars,str.chars,str.len)==0){
+							//unlink display
+							free((*itr)->label.chars);
+							MemDisplay* tmp=*itr;
+							*itr=(*itr)->next;
+							free(tmp);
+						}else{
+							itr=&((*itr)->next);
+						}
+					}
 					state=READ_COMMAND;
 					break;
 				}
@@ -1838,6 +1914,8 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 		case READ_DISABLE_ID:
 		case READ_BREAK_AT_ID:
 		case READ_MEM_NAME:
+		case READ_MEM_OFF:
+		case READ_MEM_LEN:
 		case READ_UNREG_NAME:
 			r=0;
 			puts("missing arguments");
@@ -1850,9 +1928,12 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 
 ErrorInfo debugProgram(Program prog,ProgState* state){
 	ErrorInfo res;
+	ErrorCode ioCode;
 	DebugInfo debug={
 		.maxSteps=SIZE_MAX,
-		.breakFlips=createHashMap(1024)
+		.breakFlips=createHashMap(1024),
+		.showSysRegs=false,
+		.memDisplays=NULL,
 	};
 	if(!debug.breakFlips){
 		return (ErrorInfo){
@@ -1865,6 +1946,8 @@ ErrorInfo debugProgram(Program prog,ProgState* state){
 	int r=0;
 	bool isBreak;
 	String bp_name;
+	MemDisplay** itr;
+	uint64_t tmp;
 	do{
 		do{
 			r=readDebugCommands(&debug,r);
@@ -1893,6 +1976,83 @@ ErrorInfo debugProgram(Program prog,ProgState* state){
 				if(!state->jumped){
 					state->ip++;//increase ip after break
 				}
+			}//no else
+			if(debug.showSysRegs){
+				fputs(" sys registers: ",stdout);
+				for(int i=1;i<SYS_REG_COUNT;i++){
+					if(state->sysReg[0]&1<<i){
+						printf("%"PRIx64" ",state->sysReg[i]);
+					}else{
+						printf("(%"PRIx64") ",state->sysReg[i]);
+					}
+				}
+				puts("");
+			}
+		}
+		itr=&debug.memDisplays;
+		while((*itr)){
+			if(isBreak||(*itr)->first){
+				if((*itr)->label.len>0){
+					printf("%.*s (%"PRIx64"):",(int)(*itr)->label.len,
+							(*itr)->label.chars,(*itr)->addr);
+					(*itr)->first=false;
+				}else{
+					printf("%"PRIx64":",(*itr)->addr);
+				}
+				int blockSize=0;
+				switch((*itr)->mode){
+				case DISPLAY_CHAR:
+					blockSize=1;
+					break;
+				case DISPLAY_BYTE:
+					blockSize=1;
+					break;
+				case DISPLAY_INT16:
+					blockSize=2;
+					break;
+				case DISPLAY_INT32:
+					blockSize=4;
+					break;
+				case DISPLAY_INT64:
+					blockSize=8;
+					break;
+				}
+
+				for(size_t i=0;i<(*itr)->count;i++){
+					tmp=memReadInternal(state,(*itr)->addr+i*blockSize,blockSize,&ioCode);
+					if(ioCode){
+						fputs("? ",stdout);
+					}else{
+						switch((*itr)->mode){
+						case DISPLAY_CHAR:
+							printf("'%c' ",(char)(tmp&0xff));
+							break;
+						case DISPLAY_BYTE:
+							printf("%.2x ",(uint8_t)(tmp&0xff));
+							break;
+						case DISPLAY_INT16:
+							printf("%.4x ",(uint16_t)(tmp&0xffff));
+							break;
+						case DISPLAY_INT32:
+							printf("%.8x ",(uint32_t)(tmp&0xffffffff));
+							break;
+						case DISPLAY_INT64:
+							printf("%.16"PRIx64" ",tmp);
+							break;
+						}
+					}
+				}
+				puts("");//new line
+				if((*itr)->label.len==0){
+					//remove unlabeled mem-sections after display
+					MemDisplay* delSection=*itr;
+					*itr=(*itr)->next;
+					free(delSection);
+				}else{
+					itr=&((*itr)->next);
+				}
+			}else{
+				itr=&((*itr)->next);
 			}
 		}
 	}while(isBreak);

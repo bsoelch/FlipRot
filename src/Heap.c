@@ -7,6 +7,7 @@
 #include "Heap.h"
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 //initial capacity of the sections array
 static const size_t INIT_CAP_HEAP=16;
@@ -57,33 +58,45 @@ static size_t sectionIndex(Heap heap, uint64_t addr){
 	return SIZE_MAX;
 }
 
-uint64_t heapRead(Heap heap, uint64_t addr, ErrorCode* err){
+ErrorCode heapRead(Heap heap, uint64_t addr, char* res,size_t count){
 	size_t index=sectionIndex(heap,addr);
-	if(index<SIZE_MAX){
-		*err=NO_ERR;
+	if(index<heap.len){
 		HeapSection initSection = heap.sections[index];
-		if(index+sizeof(uint64_t)<=initSection.start+initSection.len){
-			return *(uint64_t*)(initSection.data+(addr - heap.sections[index].start));
-		}else{
-			//TODO heap access across boundary
-			*err=ERR_HEAP_ILLEGAL_ACCESS;
-			return 0;
+		size_t rem=initSection.start+initSection.len-index;
+		while(rem<count){
+			memcpy(res,initSection.data+(addr - initSection.start),rem);
+			res+=rem;
+			addr+=rem;
+			count-=rem;
+			index++;
+			if(index>=heap.len){
+				return ERR_HEAP_ILLEGAL_ACCESS;
+			}
+			initSection = heap.sections[index];
 		}
+		memcpy(res,initSection.data+(addr - initSection.start),count);
+		return NO_ERR;
 	}
-	*err=ERR_HEAP_ILLEGAL_ACCESS;
-	return 0;
+	return ERR_HEAP_ILLEGAL_ACCESS;
 }
-ErrorCode heapWrite(Heap heap, uint64_t addr, uint64_t data){
+ErrorCode heapWrite(Heap heap, uint64_t addr, char* data,size_t count){
 	size_t index=sectionIndex(heap,addr);
-	if(index<SIZE_MAX){
+	if(index<heap.len){
 		HeapSection initSection = heap.sections[index];
-		if(index+sizeof(uint64_t)<=initSection.start+initSection.len){
-			*((uint64_t*)(initSection.data+(addr - heap.sections[index].start)))=data;
-			return NO_ERR;
-		}else{
-			//TODO heap access across boundary
-			return ERR_HEAP_ILLEGAL_ACCESS;
+		size_t rem=initSection.start+initSection.len-index;
+		while(rem<count){
+			memcpy(initSection.data+(addr - initSection.start),data,rem);
+			data+=rem;
+			addr+=rem;
+			count-=rem;
+			index++;
+			if(index>=heap.len){
+				return ERR_HEAP_ILLEGAL_ACCESS;
+			}
+			initSection = heap.sections[index];
 		}
+		memcpy(initSection.data+(addr - initSection.start),data,count);
+		return NO_ERR;
 	}
 	return ERR_HEAP_ILLEGAL_ACCESS;
 }
