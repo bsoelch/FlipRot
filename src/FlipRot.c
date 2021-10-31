@@ -1670,15 +1670,20 @@ ErrorInfo debugProgram(Program prog,ProgState* state){
 					NULL_POS,
 		};
 	}
+	puts("Debugging program:");
 	do{
+		//fputs("> ",stdout);
+		//XXX getLine
+
 		//debug commands:
 		// enable <breakpointId>
 		// disable <breakpointId>
 		// step1
 		// step <count>
-		// ? breakAt <command>
-		// mem <off> <len>
+		// breakAt <command>
 		// sys_regs
+		// mem (<name>) <off> <len>
+		// unregister <name>
 		res=runProgram(prog,state,&debug);
 		if(res.errCode==ERR_BREAK){
 			String bp_name=prog.actions[state->ip].data.asString;
