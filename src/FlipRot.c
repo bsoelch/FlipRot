@@ -1435,10 +1435,10 @@ char INT_IO_BUFFER [sizeof(uint64_t)];
 //reads 1-8 bytes from memory and stores the in the lower bytes of the return value
 //is an error occurs err is set to a nonzero value otherwise err is set to 0
 static uint64_t memReadInternal(ProgState* state,uint64_t addr,uint8_t count,ErrorCode* err){
-	if((addr&MEM_MASK_INVALID)!=0){
+	if(addr>MAX_MEM_ADDR){
 		*err=ERR_HEAP_ILLEGAL_ACCESS;
 		return 0;
-	}else if(addr>MEM_STACK_START){
+	}else if(addr>state->stackStart){
 		*err=heapReadReversed(state->stack,MAX_MEM_ADDR-addr,INT_IO_BUFFER,count);
 	}else{
 		*err=heapRead(state->heap,addr,INT_IO_BUFFER,count);
@@ -1464,12 +1464,9 @@ ErrorCode memWrite(ProgState* state){
 	for(int i=0;i<sizeof(uint64_t);i++){
 		INT_IO_BUFFER[i]=(state->regA>>8*i)&0xff;
 	}
-	if((state->regB&MEM_MASK_INVALID)!=0){
+	if(state->regB>MAX_MEM_ADDR){
 		return ERR_HEAP_ILLEGAL_ACCESS;
-	}else if(state->regB>MEM_STACK_START){
-		if(state->regB+sizeof(uint64_t)>MEM_SIZE){
-			return ERR_HEAP_ILLEGAL_ACCESS;
-		}
+	}else if(state->regB>state->stackStart){
 		return heapWriteReversed(state->stack,MAX_MEM_ADDR-state->regB,
 				INT_IO_BUFFER,sizeof(uint64_t));
 	}else{
@@ -1569,7 +1566,11 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 				if(regID==0){
 					switch(state->regA){
 					case CALL_RESIZE_HEAP:
-						state->regA=heapEnsureCap(&state->heap,state->sysReg[1]);
+						state->regA=heapEnsureCap(&state->heap,state->sysReg[1],state->stackStart);
+						break;
+					case CALL_RESIZE_STACK:
+						state->regA=heapEnsureCap(&state->stack,state->sysReg[1],MAX_MEM_ADDR+1-heapSize(state->heap));
+						state->stackStart=MAX_MEM_ADDR-heapSize(state->stack)+1;
 						break;
 					case CALL_READ:{
 						char* buffer=malloc(state->REG_IO_COUNT);
@@ -1595,19 +1596,20 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 										:NULL_POS,
 							};
 						}
-						if(state->REG_IO_TARGET+state->REG_IO_COUNT>MEM_SIZE){
+						if(state->REG_IO_TARGET>MAX_MEM_ADDR){
+							free(buffer);
 							return (ErrorInfo){
 								.errCode=ERR_HEAP_ILLEGAL_ACCESS,
 								.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
 										:NULL_POS,
 							};
 						}
-						if(state->REG_IO_TARGET>=MEM_STACK_START){
+						if(state->REG_IO_TARGET>=state->stackStart){
 							ioRes=heapReadReversed(state->stack,MAX_MEM_ADDR-state->REG_IO_TARGET,
 									buffer,state->REG_IO_COUNT);
-						}else if(state->REG_IO_TARGET+state->REG_IO_COUNT>=MEM_STACK_START){
-							uint64_t off=MEM_STACK_START-state->REG_IO_TARGET;
-							ioRes=heapReadReversed(state->stack,MEM_STACK_START,
+						}else if(state->REG_IO_TARGET+state->REG_IO_COUNT>=state->stackStart){
+							uint64_t off=state->stackStart-state->REG_IO_TARGET;
+							ioRes=heapReadReversed(state->stack,state->stackStart,
 									buffer+off,state->REG_IO_COUNT-off);
 						}//no else
 						if(ioRes){
@@ -1618,8 +1620,8 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 										:NULL_POS,
 							};
 						}
-						if(state->REG_IO_TARGET<MEM_STACK_START){
-							uint64_t count=MEM_STACK_START-state->REG_IO_TARGET;
+						if(state->REG_IO_TARGET<state->stackStart){
+							uint64_t count=state->stackStart-state->REG_IO_TARGET;
 							count=count>state->REG_IO_COUNT?state->REG_IO_COUNT:count;
 							ioRes=heapRead(state->heap,state->REG_IO_TARGET,buffer,count);
 							if(ioRes){
@@ -2151,6 +2153,8 @@ void printUsage(){
 	puts("");
 }
 
+
+//TODO update stack.frs to use dynamic stack-size
 int main(int argc,char** argv) {
 	if(argc<2){
 		puts("no file name provided");
@@ -2260,8 +2264,9 @@ int main(int argc,char** argv) {
 			.ip=0,
 			.regA=0,
 			.regB=0,
-			.stack = createHeap(STACK_MEM_SIZE * sizeof(uint64_t)),
-			.heap  = createHeap(0),
+			.stack = createHeap(),
+			.stackStart=MAX_MEM_ADDR+1,
+			.heap  = createHeap(),
 			.sysReg = {0},
 	};
 	if(!(initState.stack.sections&&initState.heap.sections)){

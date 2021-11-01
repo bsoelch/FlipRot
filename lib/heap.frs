@@ -42,7 +42,7 @@ _#
 
 #def heap_reset
 #ifndef $$heap$$.initialized #label $$heap$$.initialized #endif
-SYS_REG_HEAP_SIZE swap 0x100 sys
+SYS_REG_SIZE swap 0x100 sys
 SYS_REG_CALL swap CALL_HEAP_RESIZE sys #_ ensure capacity_#
 
 $$heap$$.first swap 0 store
@@ -139,7 +139,7 @@ add swap 1 jumpif
 var1 swap var0            load store
 var2 swap $$heap$$.data_offset store
 add swap 1 jumpif #_ remove dupilcate use _#
-SYS_REG_HEAP_SIZE swap var0 load sys
+SYS_REG_SIZE swap var0 load sys
 SYS_REG_CALL swap CALL_HEAP_RESIZE sys #_ ensureCap(prevEnd+len) _#
 #_ TODO? handle result _#
 

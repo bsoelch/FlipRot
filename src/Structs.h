@@ -11,25 +11,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-//TOTAL memory size in bytes
-#define MEM_SIZE            0x1000000000000ULL
-
-#define STACK_MEM_SIZE            0x1000000ULL//XXX remove
-
 //only use 48bits for mem-addresses
-#define MEM_MASK_INVALID 0xffff000000000000ULL
-
 #define MAX_MEM_ADDR         0xffffffffffffULL
-
-//TODO dynamically calculate MEM_STACK_START
-#define MEM_STACK_START      0xffffff000000ULL
 
 #define SYS_REG_COUNT                     8ULL
 #define SYS_REG_MASK                      7ULL
 //System interaction calls
 #define CALL_RESIZE_HEAP  0
-#define CALL_READ  1
-#define CALL_WRITE 2
+#define CALL_RESIZE_STACK 1
+#define CALL_READ         2
+#define CALL_WRITE        3
 
 //Typedefs with readable names for sys-registers
 #define REG_HEAP_MIN sysReg[1]
@@ -165,6 +156,7 @@ typedef struct{
 	uint64_t regB;
 
 	Heap heap;
+	uint64_t stackStart;
 	Heap stack;
 	//registers of system calls,
 	//ordered in revere order sysReg[0] has the highest id

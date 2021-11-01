@@ -37,6 +37,8 @@ _#
 #_ resets the stack, 
 this macro should be used before the first call of push _#
 #def stack_reset
+SYS_REG_SIZE swap 0x100000 sys
+SYS_REG_CALL swap CALL_STACK_RESIZE sys #_ ensure capacity_#
 stack_ptr swap 0xffffffffff70 store
 #enddef
 

@@ -18,7 +18,7 @@ static const size_t MAX_SECTION_SIZE=0x10000000;
 
 /*creates a Heap with an initial Memory size of initSize
  * if memory allocation fails Heap.section will be NULL*/
-Heap createHeap(size_t initSize){
+Heap createHeap(){
 	Heap create;
 	create.len=0;
 	create.cap=INIT_CAP_HEAP;
@@ -26,9 +26,6 @@ Heap createHeap(size_t initSize){
 	if(!create.sections){
 		create.cap=0;
 		return create;
-	}
-	if(initSize>0){
-		heapEnsureCap(&create,initSize);
 	}
 	return create;
 }
@@ -41,6 +38,13 @@ void freeHeap(Heap* heap){
 		heap->sections=NULL;
 		heap->cap=0;
 	}
+}
+
+uint64_t heapSize(Heap heap){
+	if(heap.len>0){
+		return heap.sections[heap.len-1].start+heap.sections[heap.len-1].len;
+	}
+	return 0;
 }
 
 static size_t sectionIndex(Heap heap, uint64_t addr){
@@ -190,8 +194,8 @@ static ErrorCode createSection(Heap* heap, uint64_t size){
 
 /**updates that heap ensuring that the memory capacity is at least minSize
  * return ERR_HEAP_OUT_OF_MEMORY of growing the heap is not possible*/
-ErrorCode heapEnsureCap(Heap* heap, uint64_t minSize){
-	if(minSize>MEM_STACK_START){
+ErrorCode heapEnsureCap(Heap* heap, uint64_t minSize,uint64_t maxSize){
+	if(minSize>maxSize){
 		//heap cannot grow up to stack
 		return ERR_HEAP_OUT_OF_MEMORY;
 	}//no else

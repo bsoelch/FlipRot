@@ -12,8 +12,10 @@
 
 #include "Structs.h"
 
-Heap createHeap(size_t initSize);
+Heap createHeap();
 void freeHeap(Heap* heap);
+
+uint64_t heapSize(Heap heap);
 
 ErrorCode heapRead(Heap heap, uint64_t addr,char* res,size_t count);
 ErrorCode heapWrite(Heap heap,uint64_t addr,char* data,size_t count);
@@ -23,7 +25,7 @@ ErrorCode heapWriteReversed(Heap heap,uint64_t addr,char* data,size_t count);
 //XXX? memmove
 
 
-ErrorCode heapEnsureCap(Heap* heap  ,uint64_t minSize);
+ErrorCode heapEnsureCap(Heap* heap  ,uint64_t minSize,uint64_t maxSize);
 
 
 #endif /* HEAP_H_ */
