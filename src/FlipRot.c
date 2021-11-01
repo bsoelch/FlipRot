@@ -149,7 +149,7 @@ uint64_t u64fromStr(String str,bool* isU64){
 			off=2;
 			break;
 		}
-	}// #hex conflicts with #def
+	}// #<hex> conflicts with #def
 	if(off>=str.len){
 		*isU64=false;
 		return 0;
@@ -1759,15 +1759,19 @@ void printError(ErrorInfo err){
 }
 
 
-//debug commands:
-// step
-// step <count>
-// enable <breakpointId>
-// disable <breakpointId>
-// breakAt <command>
-// sys_regs
-// mem (<name>) <off> <len>
-// unregister <name>
+static void printDebugInfo(){
+	puts("\ncommands for debug mode:");
+	puts("step: executes one instruction");
+	puts("step <int>: executes the given amount of instructions");
+	puts("enable  <breakPointId>: enables the breakpoints with the given id");
+	puts("disable <breakPointId>: disables the breakpoints with the given id");
+	puts("sys_regs: displays the sys-registers");
+	puts("mem <off> <len>: disables <len> 64bit-memblocks starting at <off>");
+	puts("mem <label> <off> <len>: disables <len> 64bit-memblocks starting at <off> "
+			"labeled with the given label after every change of the program");
+	puts("unreg <label>: removes a labeled section of memory");
+	// breakAt <command>
+}
 /**
  * reads a line from the console and parses the debug-commands,
  * returns the char-code of the first line-separator that got detected
@@ -1822,12 +1826,11 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 						info->maxSteps=SIZE_MAX;
 					}else if(strCaseEq("quit",str)||strCaseEq("q",str)
 							||strCaseEq("exit",str)||strCaseEq("x",str)){//quit
-						//TODO quit
-						assert(false&&"unimplemented");
+						exit(0);//XXX? other action for quit
 					}else if(strCaseEq("?",str)||strCaseEq("help",str)){//help
-						//TODO print help-text
+						printDebugInfo();
 					}else if(strCaseEq("mem",str)){//mem
-						memMode=DISPLAY_INT64;//XXX commands for other modes
+						memMode=DISPLAY_INT64;//XXX commands for other mem-modes
 						state=READ_MEM_NAME;
 					}else if(strCaseEq("unregister",str)||strCaseEq("unreg",str)){//unregister
 						state=READ_UNREG_NAME;
@@ -1987,9 +1990,88 @@ static int readDebugCommands(DebugInfo* info,char prevLineSep){
 	return r;
 }
 
+static void printMemInfo(ProgState *state, _Bool changed,DebugInfo *debug) {
+	MemDisplay **itr;
+	uint64_t tmp;
+	ErrorCode ioCode;
+	itr = &debug->memDisplays;
+	while ((*itr)) {
+		if (changed || (*itr)->first) {
+			if ((*itr)->label.len > 0) {
+				printf("%.*s (%I64x): ",
+						(int) (*itr)->label.len,
+						(*itr)->label.chars,
+						(*itr)->addr);
+				(*itr)->first = false;
+			} else {
+				printf("%I64x: ", (*itr)->addr);
+			}
+			int blockSize = 0;
+			switch ((*itr)->mode) {
+			case DISPLAY_CHAR:
+				blockSize = 1;
+				break;
+			case DISPLAY_BYTE:
+				blockSize = 1;
+				break;
+			case DISPLAY_INT16:
+				blockSize = 2;
+				break;
+			case DISPLAY_INT32:
+				blockSize = 4;
+				break;
+			case DISPLAY_INT64:
+				blockSize = 8;
+				break;
+			}
+			for (size_t i = 0; i < (*itr)->count; i++) {
+				tmp = memReadInternal(state,
+						(*itr)->addr + i * blockSize,
+						blockSize, &ioCode);
+				if (ioCode) {
+					fputs("? ", stdout);
+				} else {
+					switch ((*itr)->mode) {
+					case DISPLAY_CHAR:
+						printf("'%c' ",
+								(char) (tmp & 0xff));
+						break;
+					case DISPLAY_BYTE:
+						printf("%.2x ",
+								(uint8_t) (tmp & 0xff));
+						break;
+					case DISPLAY_INT16:
+						printf("%.4x ",
+								(uint16_t) (tmp & 0xffff));
+						break;
+					case DISPLAY_INT32:
+						printf("%.8x ",
+								(uint32_t) (tmp
+										& 0xffffffff));
+						break;
+					case DISPLAY_INT64:
+						printf("%.16I64x ", tmp);
+						break;
+					}
+				}
+			}
+			puts(""); //new line
+			if ((*itr)->label.len == 0) {
+				//remove unlabeled mem-sections after display
+				MemDisplay *delSection = *itr;
+				*itr = (*itr)->next;
+				free(delSection);
+			} else {
+				itr = &((*itr)->next);
+			}
+		} else {
+			itr = &((*itr)->next);
+		}
+	}
+}
+
 ErrorInfo debugProgram(Program prog,ProgState* state){
 	ErrorInfo res;
-	ErrorCode ioCode;
 	DebugInfo debug={
 		.maxSteps=SIZE_MAX,
 		.breakFlips=createHashMap(1024),
@@ -2005,17 +2087,17 @@ ErrorInfo debugProgram(Program prog,ProgState* state){
 	}
 	puts("Debugging program:");
 	int r=0;
-	bool isBreak;
+	bool isBreak,changed;
 	String bp_name;
-	MemDisplay** itr;
-	uint64_t tmp;
 	do{
 		do{
 			r=readDebugCommands(&debug,r);
 		}while(r==0);
+		changed=false;
 		if(debug.maxSteps>0){
-			res=runProgram(prog,state,&debug);
+			changed=true;
 			isBreak=false;
+			res=runProgram(prog,state,&debug);
 			if(res.errCode==ERR_BREAKPOINT){
 				isBreak=true;
 				bp_name=prog.actions[state->ip].data.asString;
@@ -2050,73 +2132,10 @@ ErrorInfo debugProgram(Program prog,ProgState* state){
 				puts("");
 			}
 		}
-		itr=&debug.memDisplays;
-		while((*itr)){
-			if(isBreak||(*itr)->first){
-				if((*itr)->label.len>0){
-					printf("%.*s (%"PRIx64"):",(int)(*itr)->label.len,
-							(*itr)->label.chars,(*itr)->addr);
-					(*itr)->first=false;
-				}else{
-					printf("%"PRIx64":",(*itr)->addr);
-				}
-				int blockSize=0;
-				switch((*itr)->mode){
-				case DISPLAY_CHAR:
-					blockSize=1;
-					break;
-				case DISPLAY_BYTE:
-					blockSize=1;
-					break;
-				case DISPLAY_INT16:
-					blockSize=2;
-					break;
-				case DISPLAY_INT32:
-					blockSize=4;
-					break;
-				case DISPLAY_INT64:
-					blockSize=8;
-					break;
-				}
-
-				for(size_t i=0;i<(*itr)->count;i++){
-					tmp=memReadInternal(state,(*itr)->addr+i*blockSize,blockSize,&ioCode);
-					if(ioCode){
-						fputs("? ",stdout);
-					}else{
-						switch((*itr)->mode){
-						case DISPLAY_CHAR:
-							printf("'%c' ",(char)(tmp&0xff));
-							break;
-						case DISPLAY_BYTE:
-							printf("%.2x ",(uint8_t)(tmp&0xff));
-							break;
-						case DISPLAY_INT16:
-							printf("%.4x ",(uint16_t)(tmp&0xffff));
-							break;
-						case DISPLAY_INT32:
-							printf("%.8x ",(uint32_t)(tmp&0xffffffff));
-							break;
-						case DISPLAY_INT64:
-							printf("%.16"PRIx64" ",tmp);
-							break;
-						}
-					}
-				}
-				puts("");//new line
-				if((*itr)->label.len==0){
-					//remove unlabeled mem-sections after display
-					MemDisplay* delSection=*itr;
-					*itr=(*itr)->next;
-					free(delSection);
-				}else{
-					itr=&((*itr)->next);
-				}
-			}else{
-				itr=&((*itr)->next);
-			}
-		}
+		printMemInfo(state,changed, &debug);
 	}while(isBreak);
+	puts("\nExecution finished:");
+	printMemInfo(state,true, &debug);
 	return res;
 }
 

@@ -21,7 +21,7 @@ $$heap$$ swap 1 jumpif
 #_ first usable address of the heap_#
 #def $$heap$$.start   0x40 #enddef
 #_ Debugger setup:
-mem prevEnd 0x8 1 mem itr 0x10 1 mem len 0x18 1 mem ret 0x20 1 mem first 0x28 1 mem start 0x40 5 mem var2 0xffffffffff90 1 mem var1 0xffffffffff88 1 mem var0 0xffffffffff80 1 mem 2nd 0x68 3 mem 3rd 0xd0 3
+mem prevEnd 0x8 1 mem itr 0x10 1 mem len 0x18 1 mem ret 0x20 1 mem first 0x28 1 mem start 0x40 3
 _#
 
 #_ 
