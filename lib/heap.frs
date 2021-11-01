@@ -21,7 +21,7 @@ $$heap$$ swap 1 jumpif
 #_ first usable address of the heap_#
 #def $$heap$$.start   0x40 #enddef
 #_ Debugger setup:
-mem prevEnd 0x8 1 mem itr 0x10 1 mem len 0x18 1 mem ret 0x20 1 mem first 0x28 1 mem start 0x40 5 
+mem prevEnd 0x8 1 mem itr 0x10 1 mem len 0x18 1 mem ret 0x20 1 mem first 0x28 1 mem start 0x40 5 mem var2 0xffffffffff90 1 mem var1 0xffffffffff88 1 mem var0 0xffffffffff80 1 
 _#
 
 #_ 
@@ -63,7 +63,8 @@ NULL swap 0 store
   var0 -> ptr to mem-section with given length
 _#
 #label heap_alloc
-#_ algorithm in C:
+#_ algorithm in C:ß
+
 *itr=first
 prevEnd=start
 
@@ -91,55 +92,54 @@ _#
 #undef heap_alloc.create
 $$heap$$.ret swap store
 $$heap$$.len     swap var0      load store #_ store input in internal variables _#
+#_ TODO increase len to next multiple of 8_#
 $$heap$$.itr     swap $$heap$$.first store #_ *itr=first _#
 $$heap$$.prevEnd swap $$heap$$.start store #_ prevEnd=start _#
 #label heap_alloc.loop #_ while _#
-var1 swap $$heap$$.itr load store
-var2 swap 0                 store
-heap_alloc.append swap eq jumpif #_ (*itr)!=0 _#
+var1 swap $$heap$$.itr load load store
+var2 swap 0                      store
+heap_alloc.append swap eq       jumpif #_ (*itr)!=0 _#
 
-var2 swap $$heap$$.prevEnd load store
-var1 swap $$heap$$.len     load store
+var2 swap $$heap$$.prevEnd  load store
+var1 swap $$heap$$.len      load store
 add swap 1 jumpif 
-var2 swap var0         load store #_ prevEnd+len_#
-var1 swap 3                  store
+var2 swap var0              load store #_ prevEnd+len_#
+var1 swap 3                      store
 add swap 1 jumpif 
-var2 swap var0         load store #_ prevEnd+len+3_#
-var1 swap $$heap$$.itr load store
-heap_alloc.insert  swap lt jumpif #_ if (*itr)<prevEnd+len+3 _#
+var2 swap var0         load      store #_ prevEnd+len+3_#
+var1 swap $$heap$$.itr load load store
+heap_alloc.insert swap gt jumpif #_ if (*itr)<prevEnd+len+3 _#
 
-var2 swap $$heap$$.len_offset load store 
+var2 swap $$heap$$.len_offset store 
 add swap 1 jumpif 
-var2 swap var0 load      store #_ (*itr+16)  _#
+var1 swap var0 load      store #_ (*itr+16)  _#
 var2 swap var0 load load store #_ *(*itr+16) _#
 add swap 1 jumpif 
-var0 load inc64 swap $$heap$$.prevEnd swap store #_ prevEnd=(*itr+16)+*(*itr+16)+1_#
+var0 load rot rot rot inc64 <<2 <<1 swap $$heap$$.prevEnd swap store #_ prevEnd=(*itr+16)+*(*itr+16)+8_#
 
-$$heap$$.itr load swap $$heap$$.itr load load store #_ *itr=*(*itr) _#
+$$heap$$.itr swap $$heap$$.itr load load store #_ *itr=*(*itr) _#
 
 heap_alloc.loop swap 1 jumpif
 #label heap_alloc.insert
-#breakpoint alloc_insert
 var1 swap $$heap$$.itr    load store
 var2 swap $$heap$$.prev_offset store  
 add swap 1 jumpif
 var0 load swap $$heap$$.prevEnd load store #_ TODO *((*itr)+8)=prevEnd_#
 heap_alloc.create swap 1 jumpif
 #label heap_alloc.append
-#breakpoint alloc_append
 #_ TODO ensureCap(prevEnd+len+3) _#
 #label heap_alloc.create
 $$heap$$.prevEnd load  swap $$heap$$.itr load load store #_ *prevEnd=*itr _#
 $$heap$$.itr load swap store #_ *itr=prevEnd _#
 
 var2 swap $$heap$$.prevEnd     load store
-var1 swap $$heap$$.prev_offset load store
+var1 swap $$heap$$.prev_offset      store
 add  swap 1 jumpif
-var0 load load swap $$heap$$.itr load store #_ *(prevEnd+8)=itr _#
-var1 swap $$heap$$.len_offset load store
+var0 load swap $$heap$$.itr    load store #_ *(prevEnd+8)=itr _#
+var1 swap $$heap$$.len_offset       store
 add  swap 1 jumpif
-var0 load load swap $$heap$$.len load store #_ *(prevEnd+16)=len _#
-var1 swap $$heap$$.data_offset load store
+var0 load swap $$heap$$.len load store #_ *(prevEnd+16)=len _#
+var1 swap $$heap$$.data_offset      store
 add  swap 1 jumpif #_ return prevEnd+24 _#
 
 #undef heap.alloc.loop
