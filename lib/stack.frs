@@ -151,4 +151,5 @@ stack_ptr load load #_ load value at top of stack _#
 
 #_ label for skipping code in file _#
 #label $$stack$$
+stack_reset
 #endif

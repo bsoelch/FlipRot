@@ -15,7 +15,6 @@
 #define MEM_SIZE            0x1000000000000ULL
 
 #define STACK_MEM_SIZE            0x1000000ULL
-#define HEAP_INIT_SIZE             0x100000ULL
 
 //only use 48bits for mem-addresses
 #define MEM_MASK_INVALID 0xffff000000000000ULL

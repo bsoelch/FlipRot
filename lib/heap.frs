@@ -42,7 +42,9 @@ _#
 
 #def heap_reset
 #ifndef $$heap$$.initialized #label $$heap$$.initialized #endif
-#_ TODO ensure capacity_#
+SYS_REG_HEAP_SIZE swap 0x100 sys
+SYS_REG_CALL swap CALL_HEAP_RESIZE sys #_ ensure capacity_#
+
 $$heap$$.first swap 0 store
 NULL swap 0 store
 #enddef
@@ -131,9 +133,18 @@ add swap 1 jumpif
 var0 load swap $$heap$$.prevEnd load store #_ TODO *((*itr)+8)=prevEnd_#
 heap_alloc.create swap 1 jumpif
 #label heap_alloc.append
-#_ TODO ensureCap(prevEnd+len+3) _#
+var1 swap $$heap$$.prevEnd load store
+var2 swap $$heap$$.len     load store
+add swap 1 jumpif
+var1 swap var0            load store
+var2 swap $$heap$$.data_offset store
+add swap 1 jumpif #_ remove dupilcate use _#
+SYS_REG_HEAP_SIZE swap var0 load sys
+SYS_REG_CALL swap CALL_HEAP_RESIZE sys #_ ensureCap(prevEnd+len) _#
+#_ TODO? handle result _#
+
 #label heap_alloc.create
-$$heap$$.prevEnd load  swap $$heap$$.itr load load store #_ *prevEnd=*itr _#
+$$heap$$.prevEnd  load swap $$heap$$.itr load load store #_ *prevEnd=*itr _#
 $$heap$$.itr load swap store #_ *itr=prevEnd _#
 
 var2 swap $$heap$$.prevEnd     load store
@@ -179,6 +190,7 @@ var2 swap $$heap$$.prev_offset   store
 add swap 1 jumpif
 var0 load swap $$heap$$.itr load load store #_ next.prev=prev_#
 #label heap_free.skip
+#_ TODO? update heap size when last element is removed _#
 
 $$heap$$.ret  load swap 1 jumpif
 #_ endof heap_free _#

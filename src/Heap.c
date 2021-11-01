@@ -27,7 +27,9 @@ Heap createHeap(size_t initSize){
 		create.cap=0;
 		return create;
 	}
-	heapEnsureCap(&create,initSize);
+	if(initSize>0){
+		heapEnsureCap(&create,initSize);
+	}
 	return create;
 }
 void freeHeap(Heap* heap){

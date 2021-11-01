@@ -2050,7 +2050,7 @@ static void printMemInfo(ProgState *state, _Bool changed,DebugInfo *debug) {
 										& 0xffffffff));
 						break;
 					case DISPLAY_INT64:
-						printf("%.16I64x ", tmp);
+						printf("%.16"PRIX64" ", tmp);
 						break;
 					}
 				}
@@ -2257,7 +2257,7 @@ int main(int argc,char** argv) {
 			.regA=0,
 			.regB=0,
 			.stackMem = malloc(STACK_MEM_SIZE * sizeof(uint64_t)),
-			.heap    = createHeap(HEAP_INIT_SIZE),
+			.heap    = createHeap(0),
 			.sysReg = {0},
 	};
 	if(!(initState.stackMem&&initState.heap.sections)){

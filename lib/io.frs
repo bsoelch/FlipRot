@@ -1,6 +1,7 @@
 #_ IO handling_#
 #include core
 #include stack
+#include system
 
 #_ skip code section_#
 #ifndef $$io$$
