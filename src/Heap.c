@@ -12,7 +12,7 @@
 //initial capacity of the sections array
 static const size_t INIT_CAP_HEAP=16;
 //minimal size of a heap section
-static const size_t MIN_SECTION_SIZE=0x1000;
+static const size_t MIN_SECTION_SIZE=0x100;
 //maximal size of a heap section
 static const size_t MAX_SECTION_SIZE=0x10000000;
 
