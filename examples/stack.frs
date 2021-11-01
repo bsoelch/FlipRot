@@ -1,18 +1,24 @@
 #_ stack demo _#
 #include core
 #include stack
-#_ TODO FIX IO_#
+#include intToHex
+#include ascii
 
-stack_reset
 1 push
 2 push
 4 push
 8 push
 16 push
-pop WRITE_LONG
-pop WRITE_LONG
+pop printHex
+'\n' WRITE_CHAR swap
+pop printHex
+'\n' WRITE_CHAR swap
 0x42 push
-pop WRITE_LONG
-pop WRITE_LONG
-pop WRITE_LONG
-pop WRITE_LONG
+pop printHex
+'\n' WRITE_CHAR swap
+pop printHex
+'\n' WRITE_CHAR swap
+pop printHex
+'\n' WRITE_CHAR swap
+pop printHex
+'\n' WRITE_CHAR swap

@@ -64,7 +64,7 @@ ErrorCode heapRead(Heap heap, uint64_t addr, char* res,size_t count){
 	size_t index=sectionIndex(heap,addr);
 	if(index<heap.len){
 		HeapSection initSection = heap.sections[index];
-		size_t rem=initSection.start+initSection.len-index;
+		size_t rem=initSection.len+initSection.start-addr;
 		while(rem<count){
 			memcpy(res,initSection.data+(addr - initSection.start),rem);
 			res+=rem;
@@ -75,17 +75,49 @@ ErrorCode heapRead(Heap heap, uint64_t addr, char* res,size_t count){
 				return ERR_HEAP_ILLEGAL_ACCESS;
 			}
 			initSection = heap.sections[index];
+			rem=initSection.len+initSection.start-addr;
 		}
 		memcpy(res,initSection.data+(addr - initSection.start),count);
 		return NO_ERR;
 	}
 	return ERR_HEAP_ILLEGAL_ACCESS;
 }
+
+/*read with reversed address-space (for stack-section)
+ * blocks are interpreted to be in the order
+ * [-(N-1),-(N-2),...,0],[-(N+M-1),...,-(N+1),-N],[...,-(N+M)],...
+ * */
+ErrorCode heapReadReversed(Heap heap, uint64_t addr, char* res,size_t count){
+	if(addr<count-1){
+		return ERR_HEAP_ILLEGAL_ACCESS;
+	}
+	size_t index=sectionIndex(heap,addr);
+	if(index<heap.len){
+		HeapSection initSection = heap.sections[index];
+		size_t rem=addr-initSection.start+1;
+		while(rem<count){
+			memcpy(res,initSection.data+initSection.len-1-(addr-initSection.start),rem);
+			res+=rem;
+			addr-=rem;
+			count-=rem;
+			index--;
+			if(index<0){
+				return ERR_HEAP_ILLEGAL_ACCESS;
+			}
+			initSection = heap.sections[index];
+			rem=addr-initSection.start+1;
+		}
+		memcpy(res,initSection.data+initSection.len-1-(addr-initSection.start),count);
+		return NO_ERR;
+	}
+	return ERR_HEAP_ILLEGAL_ACCESS;
+}
+
 ErrorCode heapWrite(Heap heap, uint64_t addr, char* data,size_t count){
 	size_t index=sectionIndex(heap,addr);
 	if(index<heap.len){
 		HeapSection initSection = heap.sections[index];
-		size_t rem=initSection.start+initSection.len-index;
+		size_t rem=initSection.start+initSection.len-addr;
 		while(rem<count){
 			memcpy(initSection.data+(addr - initSection.start),data,rem);
 			data+=rem;
@@ -98,6 +130,35 @@ ErrorCode heapWrite(Heap heap, uint64_t addr, char* data,size_t count){
 			initSection = heap.sections[index];
 		}
 		memcpy(initSection.data+(addr - initSection.start),data,count);
+		return NO_ERR;
+	}
+	return ERR_HEAP_ILLEGAL_ACCESS;
+}
+/*read with reversed address-space (for stack-section)
+ * blocks are interpreted to be in the order
+ * [-(N-1),-(N-2),...,0],[-(N+M-1),...,-(N+1),-N],[...,-(N+M)],...
+ * */
+ErrorCode heapWriteReversed(Heap heap, uint64_t addr, char* data,size_t count){
+	if(addr<count-1){
+		return ERR_HEAP_ILLEGAL_ACCESS;
+	}
+	size_t index=sectionIndex(heap,addr);
+	if(index<heap.len){
+		HeapSection initSection = heap.sections[index];
+		size_t rem=addr-initSection.start+1;
+		while(rem<count){
+			memcpy(initSection.data+initSection.len-1-(addr-initSection.start),data,rem);
+			data+=rem;
+			addr-=rem;
+			count-=rem;
+			index--;
+			if(index<0){
+				return ERR_HEAP_ILLEGAL_ACCESS;
+			}
+			initSection = heap.sections[index];
+			rem=addr-initSection.start+1;
+		}
+		memcpy(initSection.data+initSection.len-1-(addr-initSection.start),data,count);
 		return NO_ERR;
 	}
 	return ERR_HEAP_ILLEGAL_ACCESS;

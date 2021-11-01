@@ -1,0 +1,25 @@
+#include heap
+
+heap_reset
+var0 swap 0x1000 store
+heap_alloc swap 1 jumpif #_ alloc 0x1000 _#
+var0 swap 0x50000 store 
+heap_alloc swap 1 jumpif #_ alloc 0x500000 _#
+var0 load push #_ save 2nd ptr on stack _#
+var0 swap 0x1000 store
+heap_alloc swap 1 jumpif #_ alloc 0x1000 _#
+
+var1 swap var0 load store #_ store 3rd ptr in var1 _#
+pop swap var0 swap store
+var1 load push #_ add 3rd ptr to stack_#
+heap_free swap 1 jumpif #_ free 2nd section _#
+
+var0 swap 0x100 store
+heap_alloc swap 1 jumpif #_ alloc 0x100 _#
+
+var0 swap 0x200 store 
+heap_alloc swap 1 jumpif #_ alloc 0x200 _#
+
+
+pop swap var0 swap store
+heap_free swap 1 jumpif #_ free 3rd section _#

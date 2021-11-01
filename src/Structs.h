@@ -14,13 +14,15 @@
 //TOTAL memory size in bytes
 #define MEM_SIZE            0x1000000000000ULL
 
-#define STACK_MEM_SIZE            0x1000000ULL
+#define STACK_MEM_SIZE            0x1000000ULL//XXX remove
 
 //only use 48bits for mem-addresses
 #define MEM_MASK_INVALID 0xffff000000000000ULL
-#define MEM_MASK_STACK       0xffffff000000ULL
+
+#define MAX_MEM_ADDR         0xffffffffffffULL
+
+//TODO dynamically calculate MEM_STACK_START
 #define MEM_STACK_START      0xffffff000000ULL
-#define STACK_ADDR_MASK      0x000000ffffffULL
 
 #define SYS_REG_COUNT                     8ULL
 #define SYS_REG_MASK                      7ULL
@@ -163,7 +165,7 @@ typedef struct{
 	uint64_t regB;
 
 	Heap heap;
-	char* stackMem;//XXX? make stackMem also dynamic
+	Heap stack;
 	//registers of system calls,
 	//ordered in revere order sysReg[0] has the highest id
 	//sysReg[0] has the same id as MEM_SYS_CALL

@@ -1435,27 +1435,20 @@ char INT_IO_BUFFER [sizeof(uint64_t)];
 //reads 1-8 bytes from memory and stores the in the lower bytes of the return value
 //is an error occurs err is set to a nonzero value otherwise err is set to 0
 static uint64_t memReadInternal(ProgState* state,uint64_t addr,uint8_t count,ErrorCode* err){
-	char* off;
 	if((addr&MEM_MASK_INVALID)!=0){
 		*err=ERR_HEAP_ILLEGAL_ACCESS;
 		return 0;
-	}else if((addr&MEM_MASK_STACK)==MEM_STACK_START){
-		if(addr+sizeof(uint64_t)>MEM_SIZE){
-			*err=ERR_HEAP_ILLEGAL_ACCESS;
-			return 0;
-		}
-		*err=0;
-		off=state->stackMem+(addr&STACK_ADDR_MASK);
+	}else if(addr>MEM_STACK_START){
+		*err=heapReadReversed(state->stack,MAX_MEM_ADDR-addr,INT_IO_BUFFER,count);
 	}else{
-		off=INT_IO_BUFFER;
-		*err=heapRead(state->heap,addr,off,count);
+		*err=heapRead(state->heap,addr,INT_IO_BUFFER,count);
 		if(*err){
 			return 0;
 		}
 	}
 	uint64_t ret=0;
 	for(int i=0;i<count;i++){
-		ret|=((uint64_t)(off[i]&0xffULL))<<8*i;
+		ret|=((uint64_t)(INT_IO_BUFFER[i]&0xffULL))<<8*i;
 	}
 	return ret;
 }
@@ -1473,13 +1466,12 @@ ErrorCode memWrite(ProgState* state){
 	}
 	if((state->regB&MEM_MASK_INVALID)!=0){
 		return ERR_HEAP_ILLEGAL_ACCESS;
-	}else if((state->regB&MEM_MASK_STACK)==MEM_STACK_START){
+	}else if(state->regB>MEM_STACK_START){
 		if(state->regB+sizeof(uint64_t)>MEM_SIZE){
 			return ERR_HEAP_ILLEGAL_ACCESS;
 		}
-		memcpy(state->stackMem+(state->regB&STACK_ADDR_MASK),INT_IO_BUFFER,
-				sizeof(uint64_t));
-		return NO_ERR;
+		return heapWriteReversed(state->stack,MAX_MEM_ADDR-state->regB,
+				INT_IO_BUFFER,sizeof(uint64_t));
 	}else{
 		return heapWrite(state->heap,state->regB,INT_IO_BUFFER,sizeof(uint64_t));
 	}
@@ -1611,12 +1603,21 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 							};
 						}
 						if(state->REG_IO_TARGET>=MEM_STACK_START){
-							memcpy(buffer,((char*)state->stackMem)+state->REG_IO_TARGET-MEM_STACK_START
-									,state->REG_IO_COUNT);
+							ioRes=heapReadReversed(state->stack,MAX_MEM_ADDR-state->REG_IO_TARGET,
+									buffer,state->REG_IO_COUNT);
 						}else if(state->REG_IO_TARGET+state->REG_IO_COUNT>=MEM_STACK_START){
 							uint64_t off=MEM_STACK_START-state->REG_IO_TARGET;
-							memcpy(buffer+off,state->stackMem,state->REG_IO_COUNT-off);
+							ioRes=heapReadReversed(state->stack,MEM_STACK_START,
+									buffer+off,state->REG_IO_COUNT-off);
 						}//no else
+						if(ioRes){
+							free(buffer);
+							return (ErrorInfo){//XXX better error handling
+								.errCode=ioRes,
+								.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
+										:NULL_POS,
+							};
+						}
 						if(state->REG_IO_TARGET<MEM_STACK_START){
 							uint64_t count=MEM_STACK_START-state->REG_IO_TARGET;
 							count=count>state->REG_IO_COUNT?state->REG_IO_COUNT:count;
@@ -2071,7 +2072,10 @@ static void printMemInfo(ProgState *state, _Bool changed,DebugInfo *debug) {
 }
 
 ErrorInfo debugProgram(Program prog,ProgState* state){
-	ErrorInfo res;
+	ErrorInfo res={
+		.errCode=NO_ERR,
+		.pos.file=(String){.len=0,.chars=NULL}
+	};
 	DebugInfo debug={
 		.maxSteps=SIZE_MAX,
 		.breakFlips=createHashMap(1024),
@@ -2087,7 +2091,7 @@ ErrorInfo debugProgram(Program prog,ProgState* state){
 	}
 	puts("Debugging program:");
 	int r=0;
-	bool isBreak,changed;
+	bool isBreak=true,changed;
 	String bp_name;
 	do{
 		do{
@@ -2256,11 +2260,11 @@ int main(int argc,char** argv) {
 			.ip=0,
 			.regA=0,
 			.regB=0,
-			.stackMem = malloc(STACK_MEM_SIZE * sizeof(uint64_t)),
-			.heap    = createHeap(0),
+			.stack = createHeap(STACK_MEM_SIZE * sizeof(uint64_t)),
+			.heap  = createHeap(0),
 			.sysReg = {0},
 	};
-	if(!(initState.stackMem&&initState.heap.sections)){
+	if(!(initState.stack.sections&&initState.heap.sections)){
 		fputs("Out of memory",stderr);
 		return EXIT_FAILURE;
 	}

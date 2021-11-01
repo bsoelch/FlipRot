@@ -17,6 +17,8 @@ void freeHeap(Heap* heap);
 
 ErrorCode heapRead(Heap heap, uint64_t addr,char* res,size_t count);
 ErrorCode heapWrite(Heap heap,uint64_t addr,char* data,size_t count);
+ErrorCode heapReadReversed(Heap heap, uint64_t addr,char* res,size_t count);
+ErrorCode heapWriteReversed(Heap heap,uint64_t addr,char* data,size_t count);
 
 //XXX? memmove
 
