@@ -1,0 +1,18 @@
+#include core
+#include stack
+
+tmp_loop swap 0xfffffffffffffffe store
+#label loop
+#breakpoint loop
+
+SYS_REG_FD    swap STD_IN     sys #_ stdout _#
+SYS_REG_DATA  swap var0       sys #_ start of data_#
+SYS_REG_COUNT swap 64         sys #_ number of caracters _#
+SYS_REG_CALL  swap CALL_READ  sys #_ write data _#
+
+SYS_REG_FD    swap STD_OUT    sys #_ stdout _#
+SYS_REG_DATA  swap var0       sys #_ start of data_#
+SYS_REG_CALL  swap CALL_WRITE sys #_ write data _#
+
+tmp_loop swap tmp_loop load rot store
+swap loop swap jumpif

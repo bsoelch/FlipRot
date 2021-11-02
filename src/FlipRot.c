@@ -1477,17 +1477,14 @@ ErrorCode memWrite(ProgState* state){
 //TODO? compile program to C?
 
 ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
-	ErrorCode ioRes;
+	ErrorCode errCode=NO_ERR;
 	uint64_t tmp;
 	for(;state->ip<prog.len;){
 		state->jumped=false;
 		switch(prog.actions[state->ip].type){
 			case LABEL:
-				return (ErrorInfo){
-					.errCode=ERR_UNRESOLVED_LABEL,
-					.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
-							NULL_POS,
-				};//unresolved label
+				errCode=ERR_UNRESOLVED_LABEL;
+				break;//unresolved label
 			case INVALID:
 				case INCLUDE:
 			case BREAKPOINT:
@@ -1497,11 +1494,8 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 					bool flip=prog.actions[state->ip].data.asString.chars[0]=='!';
 					if(flip^(mapGet(debug->breakFlips,
 						prog.actions[state->ip].data.asString).type==MAPABLE_NONE)){
-						return (ErrorInfo){
-							.errCode=ERR_BREAKPOINT,
-							.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
-									NULL_POS,
-						};
+						errCode=ERR_BREAKPOINT;
+						break;
 					}
 				}
 				break;
@@ -1514,10 +1508,8 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 			case ENDIF:
 			case MACRO_START:
 			case MACRO_END:
-				return (ErrorInfo){
-					.errCode=ERR_UNRESOLVED_MACRO,
-					.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:NULL_POS,
-				};//unresolved macro/label (un)definition
+				errCode=ERR_UNRESOLVED_MACRO;
+				break;//unresolved macro/label (un)definition
 			case FLIP://flip lowest bit
 				state->regA^=1;
 				break;
@@ -1534,24 +1526,10 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 				state->regA=prog.actions[state->ip].data.asInt;
 				break;
 			case LOAD:
-				state->regA=memRead(state,&ioRes);
-				if(ioRes){
-					return (ErrorInfo){
-						.errCode=ioRes,
-						.pos=prog.actions[state->ip].at?
-								*prog.actions[state->ip].at:NULL_POS,
-					};
-				}
+				state->regA=memRead(state,&errCode);
 				break;
 			case STORE:
-				ioRes=memWrite(state);
-				if(ioRes){
-					return (ErrorInfo){
-						.errCode=ioRes,
-						.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
-								:NULL_POS,
-					};
-				}
+				errCode=memWrite(state);
 				break;
 			case JUMPIF:
 				if(state->regA&1){
@@ -1575,63 +1553,63 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 					case CALL_READ:{
 						char* buffer=malloc(state->REG_IO_COUNT);
 						if(!buffer){
-							return (ErrorInfo){
-								.errCode=ERR_MEM,
-								.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
-										:NULL_POS,
-							};
+							errCode=ERR_MEM;
+							break;
 						}
 						state->regA=readWrapper(state->REG_IO_FD,buffer,
 								state->PTR_REG_IO_COUNT);
 						state->sysReg[0]|=REG_COUNT_MASK;
-						//TODO copyData to heap
+						if(state->REG_IO_TARGET>MAX_MEM_ADDR){
+							free(buffer);
+							errCode=ERR_HEAP_ILLEGAL_ACCESS;
+							break;
+						}
+						if(state->REG_IO_TARGET>=state->stackStart){
+							errCode=heapWriteReversed(state->stack,MAX_MEM_ADDR-state->REG_IO_TARGET,
+									buffer,state->REG_IO_COUNT);
+						}else if(state->REG_IO_TARGET+state->REG_IO_COUNT>=state->stackStart){
+							uint64_t off=state->stackStart-state->REG_IO_TARGET;
+							errCode=heapWriteReversed(state->stack,state->stackStart,
+									buffer+off,state->REG_IO_COUNT-off);
+						}//no else
+						if(errCode==NO_ERR&&state->REG_IO_TARGET<state->stackStart){
+							uint64_t count=state->stackStart-state->REG_IO_TARGET;
+							count=count>state->REG_IO_COUNT?state->REG_IO_COUNT:count;
+							errCode=heapWrite(state->heap,state->REG_IO_TARGET,buffer,count);
+						}
+						if(errCode){
+							free(buffer);
+							break;
+						}
 						free(buffer);
 					}break;
 					case CALL_WRITE:{
 						char* buffer=malloc(state->REG_IO_COUNT);
 						if(!buffer){
-							return (ErrorInfo){
-								.errCode=ERR_MEM,
-								.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
-										:NULL_POS,
-							};
+							errCode=ERR_MEM;
+							break;
 						}
 						if(state->REG_IO_TARGET>MAX_MEM_ADDR){
 							free(buffer);
-							return (ErrorInfo){
-								.errCode=ERR_HEAP_ILLEGAL_ACCESS,
-								.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
-										:NULL_POS,
-							};
+							errCode=ERR_HEAP_ILLEGAL_ACCESS;
+							break;
 						}
 						if(state->REG_IO_TARGET>=state->stackStart){
-							ioRes=heapReadReversed(state->stack,MAX_MEM_ADDR-state->REG_IO_TARGET,
+							errCode=heapReadReversed(state->stack,MAX_MEM_ADDR-state->REG_IO_TARGET,
 									buffer,state->REG_IO_COUNT);
 						}else if(state->REG_IO_TARGET+state->REG_IO_COUNT>=state->stackStart){
 							uint64_t off=state->stackStart-state->REG_IO_TARGET;
-							ioRes=heapReadReversed(state->stack,state->stackStart,
+							errCode=heapReadReversed(state->stack,state->stackStart,
 									buffer+off,state->REG_IO_COUNT-off);
 						}//no else
-						if(ioRes){
-							free(buffer);
-							return (ErrorInfo){//XXX better error handling
-								.errCode=ioRes,
-								.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
-										:NULL_POS,
-							};
-						}
-						if(state->REG_IO_TARGET<state->stackStart){
+						if(errCode==NO_ERR&&state->REG_IO_TARGET<state->stackStart){
 							uint64_t count=state->stackStart-state->REG_IO_TARGET;
 							count=count>state->REG_IO_COUNT?state->REG_IO_COUNT:count;
-							ioRes=heapRead(state->heap,state->REG_IO_TARGET,buffer,count);
-							if(ioRes){
-								free(buffer);
-								return (ErrorInfo){
-									.errCode=ioRes,
-									.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at
-											:NULL_POS,
-								};
-							}
+							errCode=heapRead(state->heap,state->REG_IO_TARGET,buffer,count);
+						}
+						if(errCode){
+							free(buffer);
+							break;
 						}
 						state->regA=writeWrapper(state->REG_IO_FD,buffer,
 								state->PTR_REG_IO_COUNT);
@@ -1652,6 +1630,13 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 					}
 				}
 				break;
+		}
+		if(errCode){
+			return (ErrorInfo){
+				.errCode=errCode,
+				.pos=prog.actions[state->ip].at?*prog.actions[state->ip].at:
+						NULL_POS,
+			};
 		}
 		if(debug){
 			debug->maxSteps--;
