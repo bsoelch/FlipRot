@@ -15,7 +15,11 @@
 #include <inttypes.h>
 #include <assert.h>
 #include <locale.h>
+#ifdef _WIN32
 #include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "Structs.h"
 #include "HashMap.h"
@@ -1986,13 +1990,13 @@ static void printMemInfo(ProgState *state, _Bool changed,DebugInfo *debug) {
 	while ((*itr)) {
 		if (changed || (*itr)->first) {
 			if ((*itr)->label.len > 0) {
-				printf("%.*s (%I64x): ",
+				printf("%.*s (%"PRIx64"): ",
 						(int) (*itr)->label.len,
 						(*itr)->label.chars,
 						(*itr)->addr);
 				(*itr)->first = false;
 			} else {
-				printf("%I64x: ", (*itr)->addr);
+				printf("%"PRIx64": ", (*itr)->addr);
 			}
 			int blockSize = 0;
 			switch ((*itr)->mode) {

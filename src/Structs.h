@@ -10,6 +10,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#ifndef _WIN32
+#include <stddef.h>
+#endif
 
 //only use 48bits for mem-addresses
 #define MAX_MEM_ADDR         0xffffffffffffULL
@@ -19,8 +22,11 @@
 //System interaction calls
 #define CALL_RESIZE_HEAP  0
 #define CALL_RESIZE_STACK 1
+//CALL_MEM_MOVE
 #define CALL_READ         2
 #define CALL_WRITE        3
+//CALL_OPEN   path, path_len, flags -> fd
+//CALL_CLOSE  fd
 
 //Typedefs with readable names for sys-registers
 #define REG_HEAP_MIN sysReg[1]
