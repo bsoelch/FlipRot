@@ -3,25 +3,25 @@
 #def $$core$$ #enddef
 
 #_ crashes the program though a illegal heap access_#
-#def CRASH swap 0x8000000000000000 swap store #enddef
+#def CRASH swap reset flip rot #_ 0x8000000000000000 _# swap store #enddef
 
-#def SYS_REG_CALL  0 #enddef
+#def SYS_REG_CALL reset #_ 0 _# #enddef
 
-#def CALL_HEAP_RESIZE  0 #enddef
-#def CALL_STACK_RESIZE 1 #enddef
-#def CALL_READ         2 #enddef
-#def CALL_WRITE        3 #enddef
+#def CALL_HEAP_RESIZE  reset                #_ 0 _# #enddef
+#def CALL_STACK_RESIZE reset flip           #_ 1 _# #enddef
+#def CALL_READ         reset flip lrot      #_ 2 _# #enddef
+#def CALL_WRITE        reset flip lrot flip #_ 3 _# #enddef
 
 #_ Sys registers names _#
-#def SYS_REG_SIZE  1 #enddef
-#def SYS_REG_FD    1 #enddef
-#def SYS_REG_DATA  2 #enddef
-#def SYS_REG_COUNT 3 #enddef
+#def SYS_REG_SIZE  reset flip           #_ 1 _# #enddef
+#def SYS_REG_FD    reset flip           #_ 1 _# #enddef
+#def SYS_REG_DATA  reset flip lrot      #_ 2 _# #enddef
+#def SYS_REG_COUNT reset flip lrot flip #_ 3 _# #enddef
 
 #_ File descriptors for default streams_#
-#def STD_IN  0 #enddef
-#def STD_OUT 1 #enddef
-#def STD_ERR 2 #enddef
+#def STD_IN  reset           #_ 0 _# #enddef
+#def STD_OUT reset flip      #_ 1 _# #enddef
+#def STD_ERR reset flip lrot #_ 2 _# #enddef
 
 
 #_ rotation operations _#
@@ -32,12 +32,13 @@
 #def >>16 >>8  >>8  #enddef
 #def >>32 >>16 >>16 #enddef
 
-#def <<32 >>32      #enddef
-#def <<16 <<32 >>16 #enddef
-#def <<8  <<16 >>8  #enddef
-#def <<4  <<8  >>4  #enddef
-#def <<2  <<4  >>2  #enddef
-#def <<1  <<2  >>1  #enddef
+#def <<1  lrot      #enddef
+#def <<2  <<1  <<1  #enddef
+#def <<4  <<2  <<2  #enddef
+#def <<8  <<4  <<4  #enddef
+#def <<16 <<8  <<8  #enddef
+#def <<32 <<16 <<16 #enddef
+
 
 #_ flip then rot _#
 #def flipRot flip rot #enddef

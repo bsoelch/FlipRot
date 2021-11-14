@@ -2,10 +2,10 @@
 #include io
 #include asciiOut
 
-var1 swap 0 'H'< 'e'< 'l'< 'l'< 'o'< ''< 'W'< 'o'< store
-var2 swap 0 'r'< 'l'< 'd'< '!'< <<32 store
+var1 swap reset 'H'< 'e'< 'l'< 'l'< 'o'< ''< 'W'< 'o'< store
+var2 swap reset 'r'< 'l'< 'd'< '!'< <<32 store
 
-SYS_REG_FD    swap STD_OUT    sys #_ stdout _#
-SYS_REG_DATA  swap var1       sys #_ start of data_#
-SYS_REG_COUNT swap 12         sys #_ number of caracters _#
-SYS_REG_CALL  swap CALL_WRITE sys #_ write data _#
+SYS_REG_FD    swap STD_OUT                                 sys #_ stdout _#
+SYS_REG_DATA  swap var1                                    sys #_ start of data_#
+SYS_REG_COUNT swap reset flip lrot flip lrot lrot #_ 12 _# sys #_ number of caracters _#
+SYS_REG_CALL  swap CALL_WRITE                              sys #_ write data _#

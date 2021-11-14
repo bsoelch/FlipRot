@@ -10,10 +10,48 @@ The source code of the language consists of actions separated by whitespaces,
 
 ## Core Language
 The main language consists of 7 actions.
-### LOAD_INT
-loads an (64-bit) integer-constant into the main register. 
-All integers in the source code are implicitly converted to LOAD_INT instructions,
-integers starting with 0x are interpreted as hexadecimal
+
+### FILP
+flips the lowest bit of the value in the main register
+
+Examples:
+
+```
+2 flip
+```
+main register is 3
+
+```
+1 flip
+```
+main register is 0
+
+### ROT,LROT
+rotates the value in the main register by one bit to the right/left
+
+Examples:
+
+```
+2 rot
+```
+main register is 1
+
+```
+42 rot rot
+```
+main register is 0x8000 0000 0000 000A
+
+```
+2 lrot
+```
+main register is 4
+
+
+### RESET
+resets the value in the main register to 0
+
+### NOP
+no-op, existes to allow constant size of jump addresses
 
 ### SWAP
 swaps the main and secondary register
@@ -32,34 +70,6 @@ the secondary register is set to the address after this instruction
 otherwise no operation is performed
 
 The behavior of jump is undefined if the target address is not set through a label
-
-### ROT
-rotates the value in the main register by one bit to the right
-
-Examples:
-```
-2 rot
-```
-main register is 1
-
-```
-42 rot rot
-```
-main register is 0x8000 0000 0000 000A
-
-### FILP
-flips the lowest bit of the value in the main register
-
-Examples:
-```
-2 flip
-```
-main register is 3
-
-```
-1 flip
-```
-main register is 0
 
 ### SYS
 The sys keyword allows a limited the interaction with the operating system 

@@ -37,6 +37,9 @@
 #define REG_COUNT_MASK 0x8
 
 
+#define LABEL_BITS 		   32
+#define MAX_LABEL  0xffffffff
+
 typedef struct{
 	size_t len;
 	char* chars;//the only reason chars is not const is to allow the use in free
@@ -67,7 +70,8 @@ ERR_UNFINISHED_COMMENT,
 ERR_UNRESOLVED_LABEL,
 ERR_LABEL_REDEF,
 ERR_MACRO_REDEF,
-ERR_INT_OVERWRITE,//two consecutive load-int instructions
+ERR_RESET_OVERWRITE,//two consecutive reset instructions
+ERR_LABEL_OVERFLOW,//label overflows max allowed value
 
 ERR_HEAP_ILLEGAL_ACCESS,
 ERR_HEAP_OUT_OF_MEMORY,
@@ -90,13 +94,18 @@ typedef struct{
 
 typedef enum{
 	INVALID=-1,
-	LOAD_INT,//load int64 to A
+
+	LOAD_INT,//load int64 to A (deprecated)
+
+	NOP,//no op
+	RESET,//sets A to 0
+	FLIP,//flips the lowest bit in A
+	ROT,//rotates the bits of A 1 to the right
+	LROT,//rotates the bits of A 1 to the left
 	SWAP,//swaps A and B
+	JUMPIF,//swaps B with the current code position if A&1 is true
 	LOAD,//replaces A with mem[A]
 	STORE,//stores A in mem[B]
-	JUMPIF,//swaps B with the current code position if A&1 is true
-	ROT,//rotates the bits of A 1 to the right
-	FLIP,//flips the lowest bit in A
 	SYSTEM,//performs a system interaction action
 	//debug commands
 	BREAKPOINT,

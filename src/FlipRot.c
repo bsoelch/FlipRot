@@ -78,10 +78,13 @@ void freeMacro(Macro* m){
 			case INVALID:
 			case LOAD_INT:
 			case SYSTEM:
+			case NOP:
+			case RESET:
 			case SWAP:
 			case LOAD:
 			case STORE:
 			case JUMPIF:
+			case LROT:
 			case ROT:
 			case FLIP:
 			case COMMENT_START:
@@ -219,18 +222,23 @@ Action loadAction(String name,CodePos pos){
 	Action ret={.type=INVALID,.data.asInt=0,.at=makePosPtr(pos)};
 	bool isU64=false;
 	uint64_t ll=u64fromStr(name,&isU64);
-	if(isU64){
+	if(isU64){//TODO get rid of LOAD_INT instruction
 		ret.type=LOAD_INT;
 		ret.data.asInt=ll;
+		printf("%.*s:%i:%i warning the load-int instruction is deprecated\n",
+				(int)pos.file.len,pos.file.chars,(int)pos.line,(int)pos.posInLine);
+	}else if(strCaseEq("RESET",name)){
+		ret.type=RESET;
+	}else if(strCaseEq("NOP",name)){
+		ret.type=NOP;
 	}else if(strCaseEq("FLIP",name)){
 		ret.type=FLIP;
-		ret.data.asInt=1;
 	}else if(strCaseEq("ROT",name)){
 		ret.type=ROT;
-		ret.data.asInt=1;
+	}else if(strCaseEq("LROT",name)){
+		ret.type=LROT;
 	}else if(strCaseEq("SWAP",name)){
 		ret.type=SWAP;
-		ret.data.asInt=1;
 	}else if(strCaseEq("LOAD",name)){
 		ret.type=LOAD;
 	}else if(strCaseEq("STORE",name)){
@@ -384,23 +392,71 @@ size_t jumpAddress(Program* prog){
 	return prog->len;
 }
 
+ErrorCode writeLabel(Program* prog,size_t off,uint64_t addr,CodePos* pos,bool unresolved,bool updatePos){
+	if(addr>MAX_LABEL){
+		return ERR_LABEL_OVERFLOW;
+	}else{
+		//ensure capacity
+		while(off+2*LABEL_BITS>=prog->cap){
+			Action* tmp=realloc(prog->actions,2*(prog->cap)*sizeof(Action));
+			if(!tmp){
+				return ERR_MEM;
+			}
+			prog->actions=tmp;
+			(prog->cap)*=2;
+		}
+		prog->actions[off].type=unresolved?LABEL:RESET;
+		if(unresolved){
+			prog->actions[off].data.asString=(String){.len=0,.chars=NULL};
+		}else{
+			prog->actions[off].data.asInt=0;
+		}
+		if(updatePos){
+			prog->actions[off].at=pos;
+		}
+		off++;
+		uint64_t mask=1ull<<(LABEL_BITS-1);
+		while(mask!=0){
+			prog->actions[off].type=((addr&mask)!=0)?FLIP:NOP;
+			prog->actions[off].data.asInt=0;
+			if(updatePos){
+				prog->actions[off].at=pos;
+			}
+			off++;
+			mask>>=1;
+			if(mask!=0){
+				prog->actions[off].type=LROT;
+				prog->actions[off].data.asInt=0;
+				if(updatePos){
+					prog->actions[off].at=pos;
+				}
+				off++;
+			}
+		}
+		if(off>prog->len){
+			prog->len=off;
+		}
+	}
+	return NO_ERR;
+}
+
 //returns true if and error occurs
 ErrorCode putLabel(Program* prog,CodePos pos,HashMap* map,String label){
+	ErrorCode ret=NO_ERR;
 	size_t target = jumpAddress(prog);
 	Mapable prev=mapPut(map,label,
 			(Mapable) { .type = MAPABLE_POS,.value.asPos = target });
 	switch(prev.type){
 	case MAPABLE_NONE:
 		if(prev.value.asPos!=0){
-			return prev.value.asPos;
+			ret=prev.value.asPos;
 		}
 		break;
 	case MAPABLE_POSARRAY:
 		for(size_t i=0;i<prev.value.asPosArray.len;i++){
 			assert(prog->actions[prev.value.asPosArray.data[i]].type==LABEL
 					&&"Only type LABEL can be overwritten by labels");
-			prog->actions[prev.value.asPosArray.data[i]].type=LOAD_INT;
-			prog->actions[prev.value.asPosArray.data[i]].data.asInt=target;
+			ret=writeLabel(prog,prev.value.asPosArray.data[i],target,makePosPtr(pos),false,false);
 		}
 		freeMapable(prev);
 		break;
@@ -408,9 +464,9 @@ ErrorCode putLabel(Program* prog,CodePos pos,HashMap* map,String label){
 	case MAPABLE_MACRO:
 		fprintf(stderr,"redefinition of label %.*s\n",(int)label.len,label.chars);
 		freeMapable(prev);
-		return ERR_LABEL_REDEF;
+		ret=ERR_LABEL_REDEF;
 	}
-	return NO_ERR;
+	return ret;
 }
 
 //returns true if and error occurs
@@ -428,39 +484,23 @@ bool defineMacro(HashMap* macroMap,String name,Macro* macro){
 	return false;
 }
 
-ActionOrError addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,CodePos pos,String label){
-	ActionOrError ret;
+ErrorInfo addUnresolvedLabel(Mapable get,Program* prog,HashMap* map,CodePos pos,String label){
+	ErrorInfo ret=(ErrorInfo){
+		.errCode=NO_ERR,
+		.pos=pos,
+	};
 	String str=copyString(label);
 	if(str.len>0&&str.chars==NULL){
-		ret.isError=true;
-		ret.as.error=(ErrorInfo){
-			.errCode=ERR_MEM,
-			.pos=pos,
-		};
+		ret.errCode=ERR_MEM;
 		return ret;
 	}
 	get.value.asPosArray.data[get.value.asPosArray.len++]=jumpAddress(prog);
 	Mapable res=mapPut(map,str,get);
 	if(res.type==MAPABLE_NONE&&res.value.asPos!=0){
-		ret.isError=true;
-		ret.as.error=(ErrorInfo){
-			.errCode=res.value.asPos,
-			.pos=pos,
-		};
+		ret.errCode=res.value.asPos;
 		return ret;
 	}
-	//don't use label to prevent double free
-	ret.isError=false;
-	ret.as.action=(Action){
-		.type=LABEL,
-		.data.asString={.len=0,.chars=NULL},
-		.at=makePosPtr(pos)
-	};
-	if(!ret.as.action.at){
-		ret.isError=true;
-		ret.as.error.errCode=ERR_MEM;
-		ret.as.error.pos=pos;
-	}
+	ret.errCode=writeLabel(prog,prog->len,0,makePosPtr(pos),true,true);
 	return ret;
 }
 
@@ -471,59 +511,17 @@ ErrorCode addAction(Program* prog,Action a,bool debugMode){
 	if(a.type==BREAKPOINT&&!debugMode){
 		return NO_ERR;//skip breakpoints if not in debug mode
 	}
-	//compress rot rot, flip flip and swap swap for efficiency
-	if(prog->len>0){
-		if(((prog->flags&PROG_FLAG_LABEL)==0)&&
-				prog->actions[prog->len-1].type==a.type){
-			switch(a.type){
-			case FLIP:
-			case SWAP:
-				prog->len--;
-				return NO_ERR;
-			case ROT:
-				prog->actions[prog->len-1].data.asInt+=a.data.asInt;
-				if((prog->actions[prog->len-1].data.asInt&0x3f)==0){
-					//remove NOP
-					prog->len--;
-				}
-				return NO_ERR;
-			case STORE:
-				//TODO? errorMessage
-				return NO_ERR;//two stores with same data have no effect
-			//remaining ops are not compressible
-			case LOAD_INT:
-				//XXX flag: IGNORE_ERR_INT_OVERWRITE
-				return ERR_INT_OVERWRITE;//two load-ints in sequence have no effect
-			case INVALID:
-			case LOAD:
-			case SYSTEM:
-			case JUMPIF:
-			case COMMENT_START:
-			case IFDEF:
-			case IFNDEF:
-			case ELSE:
-			case ENDIF:
-			case UNDEF:
-			case LABEL:
-			case INCLUDE:
-			case LABEL_DEF:
-			case MACRO_START:
-			case MACRO_END:
-			case BREAKPOINT:
-				break;
-			}
-		}else if(a.type==LOAD_INT){
-			switch(prog->actions[prog->len-1].type){
-			case FLIP:
-			case ROT:
-			case LOAD:
-			case LABEL:
-			case LOAD_INT://load-int overwrites changed value
-				//XXX flag: IGNORE_ERR_INT_OVERWRITE
-				return ERR_INT_OVERWRITE;
-			default:
-				break;
-			}
+	if(a.type==RESET&&prog->len>0){
+		switch(prog->actions[prog->len-1].type){
+		case FLIP:
+		case ROT:
+		case LOAD:
+		case LABEL:
+		case RESET://reset overwrites changed value
+			//XXX flag: IGNORE_ERR_RESET_OVERWRITE
+			return ERR_RESET_OVERWRITE;
+		default:
+			break;
 		}
 	}
 	//ensure capacity
@@ -540,11 +538,13 @@ ErrorCode addAction(Program* prog,Action a,bool debugMode){
 	return NO_ERR;
 }
 
-ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String label,String filePath,int depth,bool debug){
-	ActionOrError ret;
+ErrorInfo resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String label,String filePath,int depth,bool debug){
+	ErrorInfo ret=(ErrorInfo){
+		.errCode=NO_ERR,
+		.pos=pos,
+	};
 	if(depth>MAX_DEPTH){
-		ret.isError=true;
-		ret.as.error=(ErrorInfo){
+		ret=(ErrorInfo){
 			.errCode=ERR_EXPANSION_OVERFLOW,
 			.pos=pos,
 		};
@@ -558,11 +558,7 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 		get.value.asPosArray.len=0;
 		get.value.asPosArray.data=malloc(INIT_CAP_PROG*sizeof(size_t));
 		if(!get.value.asPosArray.data){
-			ret.isError=true;
-			ret.as.error=(ErrorInfo){
-				.errCode=ERR_MEM,
-				.pos=pos,
-			};
+			ret.errCode=ERR_MEM;
 			return ret;
 		}
 		return addUnresolvedLabel(get,prog,macroMap,pos,label);
@@ -571,11 +567,7 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 			size_t* tmp=realloc(get.value.asPosArray.data,
 					2*get.value.asPosArray.cap*sizeof(size_t));
 			if(!tmp){
-				ret.isError=true;
-				ret.as.error=(ErrorInfo){
-					.errCode=ERR_MEM,
-					.pos=pos,
-				};
+				ret.errCode=ERR_MEM;
 				return ret;
 			}
 			get.value.asPosArray.data=tmp;
@@ -583,9 +575,7 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 		}
 		return addUnresolvedLabel(get,prog,macroMap,pos,label);
 	case MAPABLE_POS:
-		ret.isError=false;
-		ret.as.action=(Action){.type=LOAD_INT,
-			.data.asInt=get.value.asPos,.at=makePosPtr(pos)};
+		ret.errCode=writeLabel(prog,prog->len,get.value.asPos,makePosPtr(pos),false,true);
 		return ret;
 	case MAPABLE_MACRO:;
 		String str;
@@ -600,11 +590,7 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 			case IFDEF:
 			case IFNDEF:
 				if(save&0x8000000000000000ULL){
-					ret.isError=true;
-					ret.as.error=(ErrorInfo){
-						.errCode=ERR_IF_STACK_OVERFLOW,
-						.pos=pos,
-					};
+					ret.errCode=ERR_IF_STACK_OVERFLOW;
 					return ret;
 				}
 				if_count++;
@@ -614,22 +600,14 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 				break;
 			case ELSE:
 				if(if_count==0){
-					ret.isError=true;
-					ret.as.error=(ErrorInfo){
-						.errCode=ERR_UNEXPECTED_ELSE,
-						.pos=pos,
-					};
+					ret.errCode=ERR_UNEXPECTED_ELSE;
 					return ret;
 				}
 				save^=1;
 				break;
 			case ENDIF:
 				if(if_count==0){
-					ret.isError=true;
-					ret.as.error=(ErrorInfo){
-						.errCode=ERR_UNEXPECTED_ENDIF,
-						.pos=pos,
-					};
+					ret.errCode=ERR_UNEXPECTED_ENDIF;
 					return ret;
 				}
 				if_count--;
@@ -639,22 +617,14 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 			case COMMENT_START:
 			case MACRO_START:
 			case MACRO_END:
-				ret.isError=true;
-				ret.as.error=(ErrorInfo){
-					.errCode=ERR_UNRESOLVED_MACRO,
-					.pos=pos,
-				};
+				ret.errCode=ERR_UNRESOLVED_MACRO;
 				return ret;
 			case UNDEF:
 				if(save&1){
 					Mapable prev=mapPut(macroMap,a.data.asString,
 							(Mapable){.type=MAPABLE_NONE,.value.asPos=0});
 					if(prev.type==MAPABLE_NONE&&prev.value.asPos!=0){
-						ret.isError=true;
-						ret.as.error=(ErrorInfo){
-							.errCode=prev.value.asPos,
-							.pos=pos,
-						};
+						ret.errCode=prev.value.asPos;
 						return ret;
 					}
 				}
@@ -663,20 +633,12 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 				if(save&1){
 					str=copyString(a.data.asString);
 					if(str.len>0&&str.chars==NULL){
-						ret.isError=true;
-						ret.as.error=(ErrorInfo){
-							.errCode=ERR_MEM,
-							.pos=pos,
-						};
+						ret.errCode=ERR_MEM;
 						return ret;
 					}
 					ErrorCode err=putLabel(prog,pos,macroMap,str);
 					if(err){
-						ret.isError=true;
-						ret.as.error=(ErrorInfo){
-							.errCode=err,
-							.pos=pos,
-						};
+						ret.errCode=err;
 						return ret;
 					}
 				}
@@ -686,9 +648,7 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 					ErrorInfo r=include(prog,pos,macroMap,a.data.asString,
 							filePath,depth+1,debug);
 					if(r.errCode){
-						ret.isError=true;
-						ret.as.error=r;
-						return ret;
+						return r;
 					}
 				}
 				break;
@@ -696,46 +656,30 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 			if(save&1){
 				str=copyString(a.data.asString);
 				if(str.len>0&&str.chars==NULL){
-					ret.isError=true;
-					ret.as.error=(ErrorInfo){
-						.errCode=ERR_MEM,
-						.pos=pos,
-					};
+					ret.errCode=ERR_MEM;
 					return ret;
 				}
-				ActionOrError aOe=resolveLabel(prog,macroMap,a.at?*a.at:pos,str,filePath,depth+1,debug);
-				if(aOe.isError){
-					return aOe;
-				}
-				if(aOe.as.action.type!=INVALID){
-					ErrorCode res=addAction(prog,aOe.as.action,debug);
-					if(res){
-						ret.isError=true;
-						ret.as.error=(ErrorInfo){
-							.errCode=res,
-							.pos=pos,
-						};
-						return ret;
-					}
+				ret=resolveLabel(prog,macroMap,a.at?*a.at:pos,str,filePath,depth+1,debug);
+				if(ret.errCode){
+					return ret;
 				}
 			}break;
 			case LOAD_INT:
+			case RESET:
+			case NOP:
 			case SWAP:
 			case LOAD:
 			case STORE:
 			case JUMPIF:
 			case ROT:
+			case LROT:
 			case FLIP:
 			case BREAKPOINT:
 			case SYSTEM:
 				if(save&1){
 					ErrorCode res=addAction(prog,a,debug);
 					if(res){
-						ret.isError=true;
-						ret.as.error=(ErrorInfo){
-							.errCode=res,
-							.pos=pos,
-						};
+						ret.errCode=res;
 						return ret;
 					}
 				}
@@ -743,31 +687,13 @@ ActionOrError resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String la
 			}
 		}
 		if(if_count>0){
-			ret.isError=true;
-			ret.as.error.errCode=ERR_UNFINISHED_IF;
-			ret.as.error.pos=pos;
+			ret.errCode=ERR_UNFINISHED_IF;
 			return ret;
-		}
-		ret.isError=false;
-		ret.as.action=(Action){
-			.type=INVALID,
-			.data.asInt=0,
-			.at=makePosPtr(pos),
-		};
-		if(!ret.as.action.at){
-			ret.isError=true;
-			ret.as.error.errCode=ERR_MEM;
-			ret.as.error.pos=pos;
 		}
 		return ret;
 		break;
 	}
 	assert(false&&"unreachable");
-	ret.isError=true;
-	ret.as.error=(ErrorInfo){
-		.errCode=NO_ERR,
-		.pos=(CodePos){{0}},//values are irrelevant
-	};
 	return ret;
 }
 
@@ -1125,12 +1051,12 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 						case INVALID:
 							if(saveToken&1){
 								if(state==READ_ACTION){
-									ActionOrError aOe=resolveLabel(prog,macroMap,err.pos,t,filePath,depth,debug);
-									if(aOe.isError){
-										err=aOe.as.error;
+									ErrorInfo tmp=resolveLabel(prog,macroMap,err.pos,t,filePath,depth,debug);
+									if(tmp.errCode){
+										err=tmp;
 										goto errorCleanup;
 									}
-									a=aOe.as.action;
+									break;
 								}else{
 									a.type=LABEL;
 									a.data.asString=copyString(t);
@@ -1148,11 +1074,14 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 							}
 							//no break
 						case LOAD_INT:
+						case RESET:
+						case NOP:
 						case SWAP:
 						case LOAD:
 						case STORE:
 						case JUMPIF:
 						case ROT:
+						case LROT:
 						case FLIP:
 						case SYSTEM:
 							if(saveToken&1){
@@ -1229,25 +1158,24 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 				}break;
 			case INVALID:
 				if(saveToken&1){
-					ActionOrError aOe=resolveLabel(prog,macroMap,err.pos,t,filePath,depth,debug);
-					if(aOe.isError){
-						err=aOe.as.error;
+					ErrorInfo tmp=resolveLabel(prog,macroMap,err.pos,t,filePath,depth,debug);
+					if(tmp.errCode){
+						err=tmp;
 						goto errorCleanup;
 					}
-					a=aOe.as.action;
-					if(a.type==INVALID){
-						break;
-					}
+					break;
 				}else{
 					break;
 				}
-			//no break
 			case LOAD_INT:
+			case RESET:
+			case NOP:
 			case SWAP:
 			case LOAD:
 			case STORE:
 			case JUMPIF:
 			case ROT:
+			case LROT:
 			case FLIP:
 			case SYSTEM:
 				if(saveToken&1){
@@ -1478,7 +1406,7 @@ ErrorCode memWrite(ProgState* state){
 	}
 }
 
-//TODO? compile program to C?
+//TODO? compile program to binary representation
 
 ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 	ErrorCode errCode=NO_ERR;
@@ -1514,12 +1442,19 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 			case MACRO_END:
 				errCode=ERR_UNRESOLVED_MACRO;
 				break;//unresolved macro/label (un)definition
+			case NOP:
+				break;//No Op
+			case RESET:
+				state->regA=0;
+				break;
 			case FLIP://flip lowest bit
 				state->regA^=1;
 				break;
-			case ROT:;//bit rotation
-				int count=0x3f&(prog.actions[state->ip].data.asInt);
-				state->regA=(state->regA>>count)|(state->regA<<(64-count));
+			case ROT://rot right rotation
+				state->regA=state->regA>>1|state->regA<<63;
+				break;
+			case LROT://rot left rotation
+				state->regA=state->regA<<1|state->regA>>63;
 				break;
 			case SWAP:
 				tmp=state->regA;
@@ -1727,14 +1662,17 @@ void printError(ErrorInfo err){
 	case ERR_MACRO_REDEF:
 		fputs("Macro redefinition\n",stderr);
 		break;
-	case ERR_INT_OVERWRITE:
-		fputs("unused value is overwritten by load-int\n",stderr);
+	case ERR_RESET_OVERWRITE:
+		fputs("unused value is overwritten by reset\n",stderr);
 		break;
 	case ERR_HEAP_ILLEGAL_ACCESS:
 		fputs("Illegal Heap Access\n",stderr);
 		break;
 	case ERR_HEAP_OUT_OF_MEMORY:
 		fputs("Heap out of Memory\n",stderr);
+		break;
+	case ERR_LABEL_OVERFLOW:
+		fputs("Label exceeded maximum allowed value\n",stderr);
 		break;
 	case NO_ERR:
 		return;
@@ -2143,7 +2081,7 @@ void printUsage(){
 }
 
 
-//TODO update stack.frs to use dynamic stack-size
+//TODO update stack.frs to make use of dynamic stack-size
 int main(int argc,char** argv) {
 	if(argc<2){
 		puts("no file name provided");
