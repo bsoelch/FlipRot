@@ -2,146 +2,146 @@
 #ifndef $$ascii$$
 #def $$ascii$$ #enddef
 
-#def '\0'    0x0 #enddef
+#def '\0'    0x0    #enddef
 
-#def '\01'    0x1 #enddef
-#def '\02'    0x2 #enddef
-#def '\03'    0x3 #enddef
-#def '\04'    0x4 #enddef
-#def '\05'    0x5 #enddef
-#def '\06'    0x6 #enddef
+#def '\01'   0x1    #enddef
+#def '\02'   0x2    #enddef
+#def '\03'   0x3    #enddef
+#def '\04'   0x4    #enddef
+#def '\05'   0x5    #enddef
+#def '\06'   0x6    #enddef
 
-#def '\a'    0x7 #enddef
-#def '\b'    0x8 #enddef
-#def '\t'    0x9 #enddef
-#def '\n'    0xa #enddef
-#def '\v'    0xb #enddef
-#def '\f'    0xc #enddef
-#def '\r'    0xd #enddef
+#def '\a'    0x7    #enddef
+#def '\b'    0x8    #enddef
+#def '\t'    0x9    #enddef
+#def '\n'    0xA    #enddef
+#def '\v'    0xB    #enddef
+#def '\f'    0xC    #enddef
+#def '\r'    0xD    #enddef
  
-#def '\0E'    0xe #enddef
-#def '\0F'    0xf #enddef
-#def '\10'   0x10 #enddef
-#def '\11'   0x11 #enddef
-#def '\12'   0x12 #enddef
-#def '\13'   0x13 #enddef
-#def '\14'   0x14 #enddef
-#def '\15'   0x15 #enddef
-#def '\16'   0x16 #enddef
-#def '\17'   0x17 #enddef
-#def '\18'   0x18 #enddef
-#def '\19'   0x19 #enddef
-#def '\1A'   0x1a #enddef
+#def '\0E'   0xE    #enddef
+#def '\0F'   0xF    #enddef
+#def '\10'   0x1 _0 #enddef
+#def '\11'   0x1 _1 #enddef
+#def '\12'   0x1 _2 #enddef
+#def '\13'   0x1 _3 #enddef
+#def '\14'   0x1 _4 #enddef
+#def '\15'   0x1 _5 #enddef
+#def '\16'   0x1 _6 #enddef
+#def '\17'   0x1 _7 #enddef
+#def '\18'   0x1 _8 #enddef
+#def '\19'   0x1 _9 #enddef
+#def '\1A'   0x1 _A #enddef
 
-#def '\e'    0x1b #enddef
+#def '\e'    0x1 _B #enddef
 
-#def '\1C' 0x1c #enddef
-#def '\1D' 0x1d #enddef
-#def '\1E' 0x1e #enddef
-#def '\1F' 0x1f #enddef
+#def '\1C'   0x1 _C #enddef
+#def '\1D'   0x1 _D #enddef
+#def '\1E'   0x1 _E #enddef
+#def '\1F'   0x1 _F #enddef
 
 #_ Identifers cannot contain whitespaces_#
-#def ''      0x20 #enddef
-#def '!'     0x21 #enddef
-#def '"'     0x22 #enddef
-#def '#'     0x23 #enddef
-#def '$'     0x24 #enddef
-#def '%'     0x25 #enddef
-#def '&'     0x26 #enddef
-#def '''     0x27 #enddef
-#def '('     0x28 #enddef
-#def ')'     0x29 #enddef
-#def '*'     0x2a #enddef
-#def '+'     0x2b #enddef
-#def ','     0x2c #enddef
-#def '-'     0x2d #enddef
-#def '.'     0x2e #enddef
-#def '/'     0x2f #enddef
+#def ''      0x2 _0 #enddef
+#def '!'     0x2 _1 #enddef
+#def '"'     0x2 _2 #enddef
+#def '#'     0x2 _3 #enddef
+#def '$'     0x2 _4 #enddef
+#def '%'     0x2 _5 #enddef
+#def '&'     0x2 _6 #enddef
+#def '''     0x2 _7 #enddef
+#def '('     0x2 _8 #enddef
+#def ')'     0x2 _9 #enddef
+#def '*'     0x2 _A #enddef
+#def '+'     0x2 _B #enddef
+#def ','     0x2 _C #enddef
+#def '-'     0x2 _D #enddef
+#def '.'     0x2 _E #enddef
+#def '/'     0x2 _F #enddef
 
-#def '0'     0x30 #enddef
-#def '1'     0x31 #enddef
-#def '2'     0x32 #enddef
-#def '3'     0x33 #enddef
-#def '4'     0x34 #enddef
-#def '5'     0x35 #enddef
-#def '6'     0x36 #enddef
-#def '7'     0x37 #enddef
-#def '8'     0x38 #enddef
-#def '9'     0x39 #enddef
+#def '0'     0x3 _0 #enddef
+#def '1'     0x3 _1 #enddef
+#def '2'     0x3 _2 #enddef
+#def '3'     0x3 _3 #enddef
+#def '4'     0x3 _4 #enddef
+#def '5'     0x3 _5 #enddef
+#def '6'     0x3 _6 #enddef
+#def '7'     0x3 _7 #enddef
+#def '8'     0x3 _8 #enddef
+#def '9'     0x3 _9 #enddef
 
-#def ':'     0x3a #enddef
-#def ';'     0x3b #enddef
-#def '<'     0x3c #enddef
-#def '='     0x3d #enddef
-#def '>'     0x3e #enddef
-#def '?'     0x3f #enddef
-#def '@'     0x40 #enddef
+#def ':'     0x3 _A #enddef
+#def ';'     0x3 _B #enddef
+#def '<'     0x3 _C #enddef
+#def '='     0x3 _D #enddef
+#def '>'     0x3 _E #enddef
+#def '?'     0x3 _F #enddef
+#def '@'     0x4 _0 #enddef
 
-#def 'A'     0x41 #enddef
-#def 'B'     0x42 #enddef
-#def 'C'     0x43 #enddef
-#def 'D'     0x44 #enddef
-#def 'E'     0x45 #enddef
-#def 'F'     0x46 #enddef
-#def 'G'     0x47 #enddef
-#def 'H'     0x48 #enddef
-#def 'I'     0x49 #enddef
-#def 'J'     0x4a #enddef
-#def 'K'     0x4b #enddef
-#def 'L'     0x4c #enddef
-#def 'M'     0x4d #enddef
-#def 'N'     0x4e #enddef
-#def 'O'     0x4f #enddef
-#def 'P'     0x50 #enddef
-#def 'Q'     0x51 #enddef
-#def 'R'     0x52 #enddef
-#def 'S'     0x53 #enddef
-#def 'T'     0x54 #enddef
-#def 'U'     0x55 #enddef
-#def 'V'     0x56 #enddef
-#def 'W'     0x57 #enddef
-#def 'X'     0x58 #enddef
-#def 'Y'     0x59 #enddef
-#def 'Z'     0x5a #enddef
+#def 'A'     0x4 _1 #enddef
+#def 'B'     0x4 _2 #enddef
+#def 'C'     0x4 _3 #enddef
+#def 'D'     0x4 _4 #enddef
+#def 'E'     0x4 _5 #enddef
+#def 'F'     0x4 _6 #enddef
+#def 'G'     0x4 _7 #enddef
+#def 'H'     0x4 _8 #enddef
+#def 'I'     0x4 _9 #enddef
+#def 'J'     0x4 _A #enddef
+#def 'K'     0x4 _B #enddef
+#def 'L'     0x4 _C #enddef
+#def 'M'     0x4 _D #enddef
+#def 'N'     0x4 _E #enddef
+#def 'O'     0x4 _F #enddef
+#def 'P'     0x5 _0 #enddef
+#def 'Q'     0x5 _1 #enddef
+#def 'R'     0x5 _2 #enddef
+#def 'S'     0x5 _3 #enddef
+#def 'T'     0x5 _4 #enddef
+#def 'U'     0x5 _5 #enddef
+#def 'V'     0x5 _6 #enddef
+#def 'W'     0x5 _7 #enddef
+#def 'X'     0x5 _8 #enddef
+#def 'Y'     0x5 _9 #enddef
+#def 'Z'     0x5 _A #enddef
 
-#def '['     0x5b #enddef
-#def '\'     0x5c #enddef
-#def ']'     0x5d #enddef
-#def '^'     0x5e #enddef
-#def '_'     0x5f #enddef
-#def '`'     0x60 #enddef
+#def '['     0x5 _B #enddef
+#def '\'     0x5 _C #enddef
+#def ']'     0x5 _D #enddef
+#def '^'     0x5 _E #enddef
+#def '_'     0x5 _F #enddef
+#def '`'     0x6 _0 #enddef
 
-#def 'a'     0x61 #enddef
-#def 'b'     0x62 #enddef
-#def 'c'     0x63 #enddef
-#def 'd'     0x64 #enddef
-#def 'e'     0x65 #enddef
-#def 'f'     0x66 #enddef
-#def 'g'     0x67 #enddef
-#def 'h'     0x68 #enddef
-#def 'i'     0x69 #enddef
-#def 'j'     0x6a #enddef
-#def 'k'     0x6b #enddef
-#def 'l'     0x6c #enddef
-#def 'm'     0x6d #enddef
-#def 'n'     0x6e #enddef
-#def 'o'     0x6f #enddef
-#def 'p'     0x70 #enddef
-#def 'q'     0x71 #enddef
-#def 'r'     0x72 #enddef
-#def 's'     0x73 #enddef
-#def 't'     0x74 #enddef
-#def 'u'     0x75 #enddef
-#def 'v'     0x76 #enddef
-#def 'w'     0x77 #enddef
-#def 'x'     0x78 #enddef
-#def 'y'     0x79 #enddef
-#def 'z'     0x7a #enddef
+#def 'a'     0x6 _1 #enddef
+#def 'b'     0x6 _2 #enddef
+#def 'c'     0x6 _3 #enddef
+#def 'd'     0x6 _4 #enddef
+#def 'e'     0x6 _5 #enddef
+#def 'f'     0x6 _6 #enddef
+#def 'g'     0x6 _7 #enddef
+#def 'h'     0x6 _8 #enddef
+#def 'i'     0x6 _9 #enddef
+#def 'j'     0x6 _A #enddef
+#def 'k'     0x6 _B #enddef
+#def 'l'     0x6 _C #enddef
+#def 'm'     0x6 _D #enddef
+#def 'n'     0x6 _E #enddef
+#def 'o'     0x6 _F #enddef
+#def 'p'     0x7 _0 #enddef
+#def 'q'     0x7 _1 #enddef
+#def 'r'     0x7 _2 #enddef
+#def 's'     0x7 _3 #enddef
+#def 't'     0x7 _4 #enddef
+#def 'u'     0x7 _5 #enddef
+#def 'v'     0x7 _6 #enddef
+#def 'w'     0x7 _7 #enddef
+#def 'x'     0x7 _8 #enddef
+#def 'y'     0x7 _9 #enddef
+#def 'z'     0x7 _A #enddef
 
-#def '{'     0x7b #enddef
-#def '|'     0x7c #enddef
-#def '}'     0x7d #enddef
-#def '~'     0x7e #enddef
+#def '{'     0x7 _B #enddef
+#def '|'     0x7 _C #enddef
+#def '}'     0x7 _D #enddef
+#def '~'     0x7 _E #enddef
 
-#def '\7F'   0x7f #enddef
+#def '\7F'   0x7 _F #enddef
 #endif

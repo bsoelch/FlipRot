@@ -5,23 +5,58 @@
 #_ crashes the program though a illegal heap access_#
 #def CRASH swap reset flip rot #_ 0x8000000000000000 _# swap store #enddef
 
-#def SYS_REG_CALL reset #_ 0 _# #enddef
+#_ leading digit of hex-humber_#
+#def 0x0 reset                                    #enddef
+#def 0x1 reset                               flip #enddef
+#def 0x2 reset                     flip lrot      #enddef
+#def 0x3 reset                     flip lrot flip #enddef
+#def 0x4 reset           flip lrot      lrot      #enddef
+#def 0x5 reset           flip lrot      lrot flip #enddef
+#def 0x6 reset           flip lrot flip lrot      #enddef
+#def 0x7 reset           flip lrot flip lrot flip #enddef
+#def 0x8 reset flip lrot      lrot      lrot      #enddef
+#def 0x9 reset flip lrot      lrot      lrot flip #enddef
+#def 0xA reset flip lrot      lrot flip lrot      #enddef
+#def 0xB reset flip lrot      lrot flip lrot flip #enddef
+#def 0xC reset flip lrot flip lrot      lrot      #enddef
+#def 0xD reset flip lrot flip lrot      lrot flip #enddef
+#def 0xE reset flip lrot flip lrot flip lrot      #enddef
+#def 0xF reset flip lrot flip lrot flip lrot flip #enddef
+#_ digits in hex-number_#
+#def _0 lrot      lrot      lrot      lrot      #enddef
+#def _1 lrot      lrot      lrot      lrot flip #enddef
+#def _2 lrot      lrot      lrot flip lrot      #enddef
+#def _3 lrot      lrot      lrot flip lrot flip #enddef
+#def _4 lrot      lrot flip lrot      lrot      #enddef
+#def _5 lrot      lrot flip lrot      lrot flip #enddef
+#def _6 lrot      lrot flip lrot flip lrot      #enddef
+#def _7 lrot      lrot flip lrot flip lrot flip #enddef
+#def _8 lrot flip lrot      lrot      lrot      #enddef
+#def _9 lrot flip lrot      lrot      lrot flip #enddef
+#def _A lrot flip lrot      lrot flip lrot      #enddef
+#def _B lrot flip lrot      lrot flip lrot flip #enddef
+#def _C lrot flip lrot flip lrot      lrot      #enddef
+#def _D lrot flip lrot flip lrot      lrot flip #enddef
+#def _E lrot flip lrot flip lrot flip lrot      #enddef
+#def _F lrot flip lrot flip lrot flip lrot flip #enddef
 
-#def CALL_HEAP_RESIZE  reset                #_ 0 _# #enddef
-#def CALL_STACK_RESIZE reset flip           #_ 1 _# #enddef
-#def CALL_READ         reset flip lrot      #_ 2 _# #enddef
-#def CALL_WRITE        reset flip lrot flip #_ 3 _# #enddef
+#def SYS_REG_CALL 0x0 #enddef
+
+#def CALL_HEAP_RESIZE  0x0 #enddef
+#def CALL_STACK_RESIZE 0x1 #enddef
+#def CALL_READ         0x2 #enddef
+#def CALL_WRITE        0x3 #enddef
 
 #_ Sys registers names _#
-#def SYS_REG_SIZE  reset flip           #_ 1 _# #enddef
-#def SYS_REG_FD    reset flip           #_ 1 _# #enddef
-#def SYS_REG_DATA  reset flip lrot      #_ 2 _# #enddef
-#def SYS_REG_COUNT reset flip lrot flip #_ 3 _# #enddef
+#def SYS_REG_SIZE  0x1 #enddef
+#def SYS_REG_FD    0x1 #enddef
+#def SYS_REG_DATA  0x2 #enddef
+#def SYS_REG_COUNT 0x3 #enddef
 
 #_ File descriptors for default streams_#
-#def STD_IN  reset           #_ 0 _# #enddef
-#def STD_OUT reset flip      #_ 1 _# #enddef
-#def STD_ERR reset flip lrot #_ 2 _# #enddef
+#def STD_IN  0x0 #enddef
+#def STD_OUT 0x1 #enddef
+#def STD_ERR 0x2 #enddef
 
 
 #_ rotation operations _#

@@ -76,7 +76,6 @@ void freeMacro(Macro* m){
 		for(size_t i=0;i<m->len;i++){
 			switch(m->actions[i].type){
 			case INVALID:
-			case LOAD_INT:
 			case SYSTEM:
 			case NOP:
 			case RESET:
@@ -220,14 +219,7 @@ static const CodePos NULL_POS={
 
 Action loadAction(String name,CodePos pos){
 	Action ret={.type=INVALID,.data.asInt=0,.at=makePosPtr(pos)};
-	bool isU64=false;
-	uint64_t ll=u64fromStr(name,&isU64);
-	if(isU64){//TODO get rid of LOAD_INT instruction
-		ret.type=LOAD_INT;
-		ret.data.asInt=ll;
-		printf("%.*s:%i:%i warning the load-int instruction is deprecated\n",
-				(int)pos.file.len,pos.file.chars,(int)pos.line,(int)pos.posInLine);
-	}else if(strCaseEq("RESET",name)){
+	if(strCaseEq("RESET",name)){
 		ret.type=RESET;
 	}else if(strCaseEq("NOP",name)){
 		ret.type=NOP;
@@ -664,7 +656,6 @@ ErrorInfo resolveLabel(Program* prog,HashMap* macroMap,CodePos pos,String label,
 					return ret;
 				}
 			}break;
-			case LOAD_INT:
 			case RESET:
 			case NOP:
 			case SWAP:
@@ -1073,7 +1064,6 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 								break;
 							}
 							//no break
-						case LOAD_INT:
 						case RESET:
 						case NOP:
 						case SWAP:
@@ -1167,7 +1157,6 @@ ErrorInfo readFile(FILE* file,Program* prog,HashMap* macroMap,
 				}else{
 					break;
 				}
-			case LOAD_INT:
 			case RESET:
 			case NOP:
 			case SWAP:
@@ -1418,7 +1407,8 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 				errCode=ERR_UNRESOLVED_LABEL;
 				break;//unresolved label
 			case INVALID:
-				case INCLUDE:
+				errCode=ERR_INVALID_ACTION;
+				break;
 			case BREAKPOINT:
 				//depending on first char of name enabled/disabled by default
 				//normally enabled, starting with '!' inverted
@@ -1432,6 +1422,7 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 				}
 				break;
 			case COMMENT_START:
+			case INCLUDE:
 			case LABEL_DEF:
 			case UNDEF:
 			case IFDEF:
@@ -1460,9 +1451,6 @@ ErrorInfo runProgram(Program prog,ProgState* state,DebugInfo* debug){
 				tmp=state->regA;
 				state->regA=state->regB;
 				state->regB=tmp;
-				break;
-			case LOAD_INT:
-				state->regA=prog.actions[state->ip].data.asInt;
 				break;
 			case LOAD:
 				state->regA=memRead(state,&errCode);
@@ -1625,6 +1613,9 @@ void printError(ErrorInfo err){
 		break;
 	case ERR_UNRESOLVED_MACRO:
 		fputs("Unresolved macro\n",stderr);
+		break;
+	case ERR_INVALID_ACTION:
+		fputs("Invalid action\n",stderr);
 		break;
 	case ERR_INVALID_IDENTIFER:
 		fputs("Invalid Identifier\n",stderr);

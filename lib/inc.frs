@@ -22,7 +22,7 @@ _#
 
 #ifndef $$inc$$
 #_ skip code section_#
-$$inc$$ swap 1 jumpif
+$$inc$$ swap 0x1 jumpif
 
 #_ increments the value in var1 _#
 #label $$inc$$.inc 
@@ -37,7 +37,7 @@ swap $$inc$$.inc.break swap jumpif
 swap var1 swap rot store
 tmp_loop swap tmp_loop load rot store
 swap $$inc$$.inc.loop swap jumpif #_ jump to loop if tmp_loop[0] is 1 _#
-swap $$inc$$.inc.reset swap 1 jumpif #_ jump to reset _#
+swap $$inc$$.inc.reset swap 0x1 jumpif #_ jump to reset _#
 #label $$inc$$.inc.break
 var1 swap var1 load rot store
 tmp_loop swap tmp_loop load rot store
@@ -46,7 +46,7 @@ swap $$inc$$.inc.break swap jumpif #_ rotate while tmp_loop[0] is 1 _#
 tmp_loop swap tmp_loop load rot store
 swap $$inc$$.inc.end swap jumpif #_ rotate while tmp_loop[0] is 0 _#
 var1 swap var1 load rot store 
-swap $$inc$$.inc.reset swap 1 jumpif
+swap $$inc$$.inc.reset swap 0x1 jumpif
 #label $$inc$$.inc.end
 
 #undef $$inc$$.inc.loop
@@ -54,7 +54,7 @@ swap $$inc$$.inc.reset swap 1 jumpif
 #undef $$inc$$.inc.reset
 #undef $$inc$$.inc.end
 tmp_ret load swap #_ load return address _#
-1 jumpif
+0x1 jumpif
 #_ end of $$inc$$.inc _#
 
 
@@ -73,7 +73,7 @@ swap var1 swap flip rot store #_ flip lowest bit of var1 _#
 tmp_loop swap tmp_loop load rot store
 swap $$inc$$.dec.loop1 swap 
 jumpif #_ jump to loop1 tmp_loop[0] is 1 _#
-swap $$inc$$.dec.reset swap 1 jumpif #_ jump to reset _#
+swap $$inc$$.dec.reset swap 0x1 jumpif #_ jump to reset _#
 #label $$inc$$.dec.break
 swap var1 swap flip store
 #label $$inc$$.dec.loop2
@@ -84,7 +84,7 @@ swap $$inc$$.dec.loop2 swap jumpif #_ jump to loop2 if tmp_loop[0] is 1 _#
 tmp_loop swap tmp_loop load rot store
 swap $$inc$$.dec.end swap jumpif #_ rotate while tmp_loop[0] is 0 _#
 var1 swap var1 load rot store
-swap $$inc$$.dec.reset swap 1 jumpif
+swap $$inc$$.dec.reset swap 0x1 jumpif
 #label $$inc$$.dec.end
 
 #undef $$inc$$.dec.loop1
@@ -93,56 +93,56 @@ swap $$inc$$.dec.reset swap 1 jumpif
 #undef $$inc$$.dec.reset
 #undef $$inc$$.dec.end
 tmp_ret load swap #_ load return address _#
-1 jumpif
+0x1 jumpif
 #_ end of $$inc$$.dec _#
 
 #def inc8 
 swap var1 swap store #_ store target in var1 _#
-tmp_loop swap 0xfe store #_ unary 8 _#
-$$inc$$.inc swap 1 jumpif #_ perform operation _#
+tmp_loop swap 0xF _E store #_ unary 8 _#
+$$inc$$.inc swap 0x1 jumpif #_ perform operation _#
 var1 load #_ load result _#
 #enddef
 #def inc16 
 swap var1 swap store #_ store target in var1 _#
-tmp_loop swap 0xfffe store #_ unary 8 _#
-$$inc$$.inc swap 1 jumpif #_ perform operation _#
+tmp_loop swap 0xF _F _F _E store #_ unary 8 _#
+$$inc$$.inc swap 0x1 jumpif #_ perform operation _#
 var1 load #_ load result _#
 #enddef
 #def inc32 
 swap var1 swap store #_ store target in var1 _#
-tmp_loop swap 0xfffffffe store #_ unary 8 _#
-$$inc$$.inc swap 1 jumpif #_ perform operation _#
+tmp_loop swap 0xF _F _F _F _F _F _F _E store #_ unary 8 _#
+$$inc$$.inc swap 0x1 jumpif #_ perform operation _#
 var1 load #_ load result _#
 #enddef
 #def inc64
 swap var1 swap store #_ store target in var1 _#
-tmp_loop swap 0xfffffffffffffffe store #_ unary 8 _#
-$$inc$$.inc swap 1 jumpif #_ perform operation _#
+tmp_loop swap 0xF _F _F _F _F _F _F _F _F _F _F _F _F _F _F _E store #_ unary 8 _#
+$$inc$$.inc swap 0x1 jumpif #_ perform operation _#
 var1 load #_ load result _#
 #enddef
 
 #def dec8 
 swap var1 swap store #_ store target in var1 _#
-tmp_loop swap 0xfe store #_ unary 8 _#
-$$inc$$.dec swap 1 jumpif #_ perform operation _#
+tmp_loop swap 0xF _E store #_ unary 8 _#
+$$inc$$.dec swap 0x1 jumpif #_ perform operation _#
 var1 load #_ load result _#
 #enddef
 #def dec16 
 swap var1 swap store #_ store target in var1 _#
-tmp_loop swap 0xfffe store #_ unary 8 _#
-$$inc$$.dec swap 1 jumpif #_ perform operation _#
+tmp_loop swap 0xF _F _F _E store #_ unary 8 _#
+$$inc$$.dec swap 0x1 jumpif #_ perform operation _#
 var1 load #_ load result _#
 #enddef
 #def dec32 
 swap var1 swap store #_ store target in var1 _#
-tmp_loop swap 0xfffffffe store #_ unary 8 _#
-$$inc$$.dec swap 1 jumpif #_ perform operation _#
+tmp_loop swap 0xF _F _F _F _F _F _F _E store #_ unary 8 _#
+$$inc$$.dec swap 0x1 jumpif #_ perform operation _#
 var1 load #_ load result _#
 #enddef
 #def dec64
 swap var1 swap store #_ store target in var1 _#
-tmp_loop swap 0xfffffffffffffffe store #_ unary 8 _#
-$$inc$$.dec swap 1 jumpif #_ perform operation _#
+tmp_loop swap 0xF _F _F _F _F _F _F _F _F _F _F _F _F _F _F _E store #_ unary 8 _#
+$$inc$$.dec swap 0x1 jumpif #_ perform operation _#
 var1 load #_ load result _#
 #enddef
 

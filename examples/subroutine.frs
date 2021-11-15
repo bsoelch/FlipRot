@@ -1,17 +1,17 @@
 #_ demo program for the use of subroutines_#
 start swap 
-1
+0x1
 jumpif #_ jump to start label _#
 
 #label target
-0 swap store #_ store return addres in mem[0] _#
-0 swap 0 #_ do something _#
-0 load swap #_ load return address to secondary register _#
-1 
+0x0 swap store #_ store return addres in mem[0] _#
+0x0 swap 0x0 #_ do something _#
+0x0 load swap #_ load return address to secondary register _#
+0x1 
 jumpif
 
 #label start
 target swap
-1
+0x1
 jumpif
 #_ return point _#

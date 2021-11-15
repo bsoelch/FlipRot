@@ -4,21 +4,22 @@
 
 #_ skip code section_#
 #ifndef $$io$$
-$$io$$ swap 1 jumpif
+$$io$$ swap 0x1 jumpif
 
 #label $$io$$.writeCharImpl
 tmp_ret swap store #_ save return address _#
 SYS_REG_FD    swap STD_OUT      sys
 SYS_REG_DATA  swap varD         sys #_ save var-pointer to SYS_REG_DATA _#
-SYS_REG_COUNT swap 1            sys
+SYS_REG_COUNT swap 0x1          sys
 SYS_REG_CALL  swap CALL_WRITE   sys #_ call write call _#
+
 swap varD swap store
-tmp_ret load swap 1 jumpif 
+tmp_ret   load swap  0x1 jumpif 
 #_ end of $$io$$.writeCharImpl _#
 
 #def WRITE_CHAR 
 swap varD swap store
-$$io$$.writeCharImpl swap 1 jumpif
+$$io$$.writeCharImpl swap 0x1 jumpif
 varD load
 #enddef
 

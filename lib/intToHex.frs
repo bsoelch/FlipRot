@@ -7,7 +7,7 @@
 
 #_ skip code section_#
 #ifndef $$intToHex$$
-$$intToHex$$ swap 1 jumpif
+$$intToHex$$ swap 0x1 jumpif
 
 #_ helper for toHex _#
 #label $$intToHex$$.storeHexDigit
@@ -41,13 +41,13 @@ $$intToHex$$.storeHexDigit.0001 swap varD load jumpif
 swap varD swap rot store
 #_ 0000 _#
 varB load swap varB load load '0'< store
-$$intToHex$$.storeHexDigit.inc? swap 1 jumpif
+$$intToHex$$.storeHexDigit.inc? swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.0001
 swap varD swap rot store
 #_ 0001 _#
 varB load swap varB load load '8'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.001
 swap varD swap rot store
@@ -55,13 +55,13 @@ $$intToHex$$.storeHexDigit.0011 swap varD load jumpif
 swap varD swap rot store
 #_ 0010 _#
 varB load swap varB load load '4'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.0011
 swap varD swap rot store
 #_ 0011 _#
 varB load swap varB load load 'C'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.01
 swap varD swap rot store
@@ -71,13 +71,13 @@ $$intToHex$$.storeHexDigit.0101 swap varD load jumpif
 swap varD swap rot store
 #_ 0100 _#
 varB load swap varB load load '2'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.0101
 swap varD swap rot store
 #_ 0101 _#
 varB load swap varB load load 'A'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.011
 swap varD swap rot store
@@ -85,13 +85,13 @@ $$intToHex$$.storeHexDigit.0111 swap varD load jumpif
 swap varD swap rot store
 #_ 0110 _#
 varB load swap varB load load '6'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.0111
 swap varD swap rot store
 #_ 0111 _#
 varB load swap varB load load 'E'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.1
 swap varD swap rot store
@@ -103,13 +103,13 @@ $$intToHex$$.storeHexDigit.1001 swap varD load jumpif
 swap varD swap rot store
 #_ 1000 _#
 varB load swap varB load load '1'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.1001
 swap varD swap rot store
 #_ 1001 _#
 varB load swap varB load load '9'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.101
 swap varD swap rot store
@@ -117,13 +117,13 @@ $$intToHex$$.storeHexDigit.1011 swap varD load jumpif
 swap varD swap rot store
 #_ 1010 _#
 varB load swap varB load load '5'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.1011
 swap varD swap rot store
 #_ 1011 _#
 varB load swap varB load load 'D'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.11
 swap varD swap rot store
@@ -133,13 +133,13 @@ $$intToHex$$.storeHexDigit.1101 swap varD load jumpif
 swap varD swap rot store
 #_ 1100 _#
 varB load swap varB load load '3'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.1101
 swap varD swap rot store
 #_ 1101 _#
 varB load swap varB load load 'B'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.111
 swap varD swap rot store
@@ -147,17 +147,17 @@ $$intToHex$$.storeHexDigit.1111 swap varD load jumpif
 swap varD swap rot store
 #_ 1110 _#
 varB load swap varB load load '7'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.1111
 swap varD swap rot store
 #_ 1111 _#
 varB load swap varB load load 'F'< store
-$$intToHex$$.storeHexDigit.end!0 swap 1 jumpif
+$$intToHex$$.storeHexDigit.end!0 swap 0x1 jumpif
 
 #label $$intToHex$$.storeHexDigit.end!0
 #_ at least one nonzero digit_#
-swap varA swap 1 store
+swap varA swap 0x1 store
 #label $$intToHex$$.storeHexDigit.inc?
 $$intToHex$$.storeHexDigit.end swap varA load flip jumpif
 var9 swap var9 load rot flip store
@@ -181,7 +181,7 @@ var9 swap var9 load rot flip store
 #undef $$intToHex$$.storeHexDigit.end!0
 #undef $$intToHex$$.storeHexDigit.inc?
 #undef $$intToHex$$.storeHexDigit.end
-tmp_ret load swap 1 jumpif
+tmp_ret load swap 0x1 jumpif
 #_ end of $$intToHex$$.storeHexDigit _#
 
 
@@ -211,24 +211,24 @@ varC swap store #_ store return address _#
 #undef toHex.end
 #undef toHex.unToBin
 
-varA swap 0 store 
-swap var9 swap 0 store #_ reset length _#
-var1 swap 0 store
+varA swap 0x0 store 
+swap var9 swap 0x0 store #_ reset length _#
+var1 swap 0x0 store
 varB swap store #_ store target in varB_#
-tmp_loop swap 0xfe store #_ 0,unary 7 _#
+tmp_loop swap 0xF _E store #_ 0,unary 7 _#
 swap varD swap varD load >>4 store 
 #label toHex.loop
 swap varD swap varD load <<8 store 
-$$intToHex$$.storeHexDigit swap 1 jumpif
+$$intToHex$$.storeHexDigit swap 0x1 jumpif
 tmp_loop swap tmp_loop load rot store
 swap toHex.loop swap 
 jumpif
 tmp_loop swap tmp_loop load rot store
 swap toHex.break swap #_ end loop after 16 digits _#
 jumpif
-var2 swap 0 store #_ set target to var1 after 8 digits _#
+var2 swap 0x0 store #_ set target to var1 after 8 digits _#
 varB swap store #_ store target in varB_#
-tmp_loop swap 0x2ff store #_ unary 8, 0, 1_#
+tmp_loop swap 0x2 _F _F store #_ unary 8, 0, 1_#
 swap toHex.loop swap 
 jumpif
 #label toHex.break
@@ -250,7 +250,7 @@ toHex.unToBin swap var9 load jumpif
 var9 swap var1 load store #_ move result to var9 _ #
 var1 swap pop store #_ restore var1 _ #
 _#
-var9 swap 16 store
+var9 swap 0x1 _0 store
 #label toHex.end
 
 #undef toHex.unToBin
@@ -258,7 +258,7 @@ var9 swap 16 store
 #undef toHex.end
 #undef toHex.loop1
 #undef toHex.break
-varC load swap 1 jumpif
+varC load swap 0x1 jumpif
 #_ end of toHex _#
 
 #_ prints a number in base 16 
@@ -278,17 +278,18 @@ Uses:
 _#
 #label $$intToHex$$.printHex
 swap push #_ push return address_#
-toHex swap 1 jumpif #_ convert number to hex _#
-SYS_REG_FD    swap STD_OUT    sys
-SYS_REG_DATA  swap var1       sys
-SYS_REG_COUNT swap var9 load  sys
-SYS_REG_CALL  swap CALL_WRITE sys #_ TODO handle return varue_#
-pop swap 1 jumpif #_ jump to return address_#
+toHex swap 0x1 jumpif #_ convert number to hex _#
+SYS_REG_FD     swap STD_OUT    sys
+SYS_REG_DATA   swap var1       sys
+SYS_REG_COUNT  swap var9 load  sys
+SYS_REG_CALL   swap CALL_WRITE sys #_ TODO handle return varue_#
+pop swap   
+0x1 jumpif #_ jump to return address_#
 #_ end of $$intToHex$$.printHex _#
 
 #def printHex 
 swap varD swap store
-$$intToHex$$.printHex swap 1 jumpif 
+$$intToHex$$.printHex swap 0x1 jumpif 
 #enddef
 
 

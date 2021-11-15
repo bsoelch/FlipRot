@@ -59,6 +59,7 @@ ERR_EXPANSION_OVERFLOW,
 ERR_IF_STACK_OVERFLOW,
 ERR_UNRESOLVED_MACRO,
 ERR_INVALID_IDENTIFER,
+ERR_INVALID_ACTION,
 ERR_UNEXPECTED_MACRO_DEF,
 ERR_UNEXPECTED_MACRO_END,
 ERR_UNFINISHED_IF,
@@ -94,9 +95,6 @@ typedef struct{
 
 typedef enum{
 	INVALID=-1,
-
-	LOAD_INT,//load int64 to A (deprecated)
-
 	NOP,//no op
 	RESET,//sets A to 0
 	FLIP,//flips the lowest bit in A

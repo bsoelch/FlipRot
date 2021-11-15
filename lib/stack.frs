@@ -7,39 +7,39 @@ Memory layout:
 _#
 #ifndef $$stack$$
 #_ skip code in file _#
-$$stack$$ swap 1 jumpif
+$$stack$$ swap 0x1 jumpif
 
 #_ addresses for temporary values within macros/procedures, 
 these address may be overwritten by any macro _#
-#def tmp_ret  0xfffffffffff8 #enddef
-#def tmp_loop 0xfffffffffff0 #enddef
+#def tmp_ret  0xF _F _F _F _F _F _F _F _F _F _F _8 #enddef
+#def tmp_loop 0xF _F _F _F _F _F _F _F _F _F _F _0 #enddef
 #_ addresses for immediate values 
 it is the responsibility of the caller to save 
 registers that should be retained on the stack
 _#
-#def varD 0xffffffffffe8 #enddef
-#def varC 0xffffffffffe0 #enddef
-#def varB 0xffffffffffd8 #enddef
-#def varA 0xffffffffffd0 #enddef
-#def var9 0xffffffffffc8 #enddef
-#def var8 0xffffffffffc0 #enddef
-#def var7 0xffffffffffb8 #enddef
-#def var6 0xffffffffffb0 #enddef
-#def var5 0xffffffffffa8 #enddef
-#def var4 0xffffffffffa0 #enddef
-#def var3 0xffffffffff98 #enddef
-#def var2 0xffffffffff90 #enddef
-#def var1 0xffffffffff88 #enddef
-#def var0 0xffffffffff80 #enddef
+#def varD 0xF _F _F _F _F _F _F _F _F _F _E _8 #enddef
+#def varC 0xF _F _F _F _F _F _F _F _F _F _E _0 #enddef
+#def varB 0xF _F _F _F _F _F _F _F _F _F _D _8 #enddef
+#def varA 0xF _F _F _F _F _F _F _F _F _F _D _0 #enddef
+#def var9 0xF _F _F _F _F _F _F _F _F _F _C _8 #enddef
+#def var8 0xF _F _F _F _F _F _F _F _F _F _C _0 #enddef
+#def var7 0xF _F _F _F _F _F _F _F _F _F _B _8 #enddef
+#def var6 0xF _F _F _F _F _F _F _F _F _F _B _0 #enddef
+#def var5 0xF _F _F _F _F _F _F _F _F _F _A _8 #enddef
+#def var4 0xF _F _F _F _F _F _F _F _F _F _A _0 #enddef
+#def var3 0xF _F _F _F _F _F _F _F _F _F _9 _8 #enddef
+#def var2 0xF _F _F _F _F _F _F _F _F _F _9 _0 #enddef
+#def var1 0xF _F _F _F _F _F _F _F _F _F _8 _8 #enddef
+#def var0 0xF _F _F _F _F _F _F _F _F _F _8 _0 #enddef
 
 #_ points to address above the top of the stack _#
-#def stack_ptr 0xffffffffff78 #enddef
+#def stack_ptr 0xF _F _F _F _F _F _F _F _F _F _7 _8 #enddef
 #_ resets the stack, 
 this macro should be used before the first call of push _#
 #def stack_reset
-SYS_REG_SIZE swap 0x100000 sys
+SYS_REG_SIZE swap 0x1 _0 _0 _0 _0 _0 sys
 SYS_REG_CALL swap CALL_STACK_RESIZE sys #_ ensure capacity_#
-stack_ptr swap 0xffffffffff70 store
+stack_ptr swap 0xF _F _F _F _F _F _F _F _F _F _7 _0 store
 #enddef
 
 #_ increments the stack_ptr
@@ -53,7 +53,7 @@ tmp_ret swap store #_ save return address _#
 #_ convert stack_ptr to block index _#
 stack_ptr swap stack_ptr load rot rot rot store 
 #_ set tmp_loop (loop-count) to unary 21 _#
-tmp_loop swap 0x1fffff store 
+tmp_loop swap 0x1 _F _F _F _F _F store 
 #label $$stack$$.inc.loop
 stack_ptr swap stack_ptr load flip store #_ flip lowest bit of stack ptr _#
 swap $$stack$$.inc.break swap
@@ -63,14 +63,14 @@ tmp_loop swap tmp_loop load rot store
 swap $$stack$$.inc.loop swap
 jumpif #_ jump to loop if rotation count not yet reached _#
 swap $$stack$$.inc.reset swap 
-1 jumpif #_ jump to reset _#
+0x1 jumpif #_ jump to reset _#
 #label $$stack$$.inc.break
 stack_ptr swap stack_ptr load rot store
 tmp_loop swap tmp_loop load rot store
 swap $$stack$$.inc.break swap
 jumpif #_ jump to break if rotation count not yet reached _#
 swap $$stack$$.inc.reset swap 
-1 jumpif #_ jump to reset _#
+0x1 jumpif #_ jump to reset _#
 #label $$stack$$.inc.reset
 stack_ptr swap stack_ptr load
 #_ rotate by 64-(21+3) _#
@@ -82,7 +82,7 @@ store
 #undef $$stack$$.inc.break
 #undef $$stack$$.inc.reset
 tmp_ret load swap #_ load return address _#
-1 jumpif
+0x1 jumpif
 #_ end of $$stack$$.inc _#
 
 #_ decrements the stack_ptr, 
@@ -96,7 +96,7 @@ _#
 tmp_ret swap store #_ save return address _#
 stack_ptr swap stack_ptr load rot rot rot store #_ convert index to block index_#
 #_ set tmp_loop (loop-count) to unary 21 _#
-tmp_loop swap 0x1fffff store 
+tmp_loop swap 0x1 _F _F _F _F _F store 
 #label $$stack$$.dec.loop1
 stack_ptr swap stack_ptr load
 swap $$stack$$.dec.break swap
@@ -106,7 +106,7 @@ tmp_loop swap tmp_loop load rot store
 swap $$stack$$.dec.loop1 swap 
 jumpif #_ jump to loop1 if rotation count not yet reached _#
 swap $$stack$$.dec.reset swap 
-1 jumpif #_ jump to reset _#
+0x1 jumpif #_ jump to reset _#
 #label $$stack$$.dec.break
 swap stack_ptr swap flip store
 #label $$stack$$.dec.loop2
@@ -126,7 +126,7 @@ store
 #undef $$stack$$.dec.loop2
 #undef $$stack$$.dec.reset
 tmp_ret load swap #_ load return address _#
-1 jumpif
+0x1 jumpif
 #_ end of $$stack$$.dec _#
 
 
@@ -135,9 +135,10 @@ tmp_ret load swap #_ load return address _#
 stack_reset
 #label $$stack$$.flag.stackInitialized
 #endif
-swap stack_ptr load swap store #_ store value at top of stack _#
+swap stack_ptr #breakpoint !push
+load swap store #_ store value at top of stack _#
 $$stack$$.dec swap 
-1 jumpif #_ decrement the stack pointer _#
+0x1 jumpif #_ decrement the stack pointer _#
 #enddef
 
 #def pop 
@@ -147,7 +148,7 @@ stack_reset
 #endif
 
 $$stack$$.inc swap 
-1 jumpif #_ increment the stack_pointer _#
+0x1 jumpif #_ increment the stack_pointer _#
 stack_ptr load load #_ load value at top of stack _#
 #enddef
 

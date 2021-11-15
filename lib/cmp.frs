@@ -3,7 +3,7 @@
 #include stack
 
 #ifndef $$cmp$$
-$$cmp$$ swap 1 jumpif #_ skip code _#
+$$cmp$$ swap 0x1 jumpif #_ skip code _#
 
 #def $$cmp$$.GT 0x4 #enddef
 #def $$cmp$$.LT 0x2 #enddef
@@ -29,7 +29,7 @@ $$cmp$$.cmp.1HI   swap var1 load jumpif
 $$cmp$$.cmp.endif swap var2 load flip jumpif
 #_ var1[i]=0,var2[i]=1 _#
 var0 swap $$cmp$$.LT store
-$$cmp$$.cmp.endif swap 1 jumpif
+$$cmp$$.cmp.endif swap 0x1 jumpif
 #label $$cmp$$.cmp.1HI
 $$cmp$$.cmp.endif swap var2 load jumpif
 #_ var1[i]=1,var2[i]=0 _#
@@ -39,7 +39,7 @@ var1 swap var1 load rot store
 var2 swap var2 load rot store
 tmp_loop swap tmp_loop load rot store
 swap $$cmp$$.cmp.loop swap flip jumpif #_ run exactly 64 iterations _#
-tmp_ret load swap 1 jumpif
+tmp_ret load swap 0x1 jumpif
 #_ end of $$cmp$$.cmp _#
 
 #_ 
@@ -51,8 +51,8 @@ sets lowest bit in main register to 1 iff *var1==*var2
 _#
 #def eq 
 var3 swap store #_ store seconary register _#
-tmp_loop swap 1 store #_ 64-bit mode_#
-$$cmp$$.cmp swap 1 jumpif 
+tmp_loop swap 0x1 store #_ 64-bit mode_#
+$$cmp$$.cmp swap 0x1 jumpif 
 var3 load swap var0 load
 #enddef
 
@@ -65,8 +65,8 @@ sets lowest bit in main register to 1 iff *var1<*var2
 _#
 #def lt 
 var3 swap store #_ store seconary register _#
-tmp_loop swap 1 store #_ 64-bit mode_#
-$$cmp$$.cmp swap 1 jumpif 
+tmp_loop swap 0x1 store #_ 64-bit mode_#
+$$cmp$$.cmp swap 0x1 jumpif 
 var3 load swap var0 load rot
 #enddef
 
@@ -79,8 +79,8 @@ sets lowest bit in main register to 1 iff *var1>*var2
 _#
 #def gt 
 var3 swap store #_ store seconary register _#
-tmp_loop swap 1 store #_ 64-bit mode_#
-$$cmp$$.cmp swap 1 jumpif 
+tmp_loop swap 0x1 store #_ 64-bit mode_#
+$$cmp$$.cmp swap 0x1 jumpif 
 var3 load swap var0 load rot rot
 #enddef
 

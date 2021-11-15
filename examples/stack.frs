@@ -4,16 +4,16 @@
 #include intToHex
 #include ascii
 
-1 push
-2 push
-4 push
-8 push
-16 push
+0x1 push
+0x2 push
+0x4 push
+0x8 push
+0x1 _0 push
 pop printHex
 '\n' WRITE_CHAR swap
 pop printHex
 '\n' WRITE_CHAR swap
-0x42 push
+0x4 _2 push
 pop printHex
 '\n' WRITE_CHAR swap
 pop printHex

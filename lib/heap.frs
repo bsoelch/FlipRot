@@ -10,16 +10,16 @@ _#
 #include cmp
 
 #ifndef $$heap$$
-$$heap$$ swap 1 jumpif
+$$heap$$ swap 0x1 jumpif
 
-#def NULL                0 #enddef
-#def $$heap$$.prevEnd 0x08 #enddef
-#def $$heap$$.itr     0x10 #enddef
-#def $$heap$$.len     0x18 #enddef
-#def $$heap$$.ret     0x20 #enddef
-#def $$heap$$.first   0x28 #enddef
+#def NULL              0x0    #enddef
+#def $$heap$$.prevEnd  0x8    #enddef
+#def $$heap$$.itr      0x1 _0 #enddef
+#def $$heap$$.len      0x1 _8 #enddef
+#def $$heap$$.ret      0x2 _0 #enddef
+#def $$heap$$.first    0x2 _8 #enddef
 #_ first usable address of the heap_#
-#def $$heap$$.start   0x40 #enddef
+#def $$heap$$.start    0x4 _0 #enddef
 #_ Debugger setup:
 mem prevEnd 0x8 1 mem itr 0x10 1 mem len 0x18 1 mem ret 0x20 1 mem first 0x28 1 mem start 0x40 3
 _#
@@ -42,20 +42,20 @@ _#
 
 #def heap_reset
 #ifndef $$heap$$.initialized #label $$heap$$.initialized #endif
-SYS_REG_SIZE swap 0x100 sys
+SYS_REG_SIZE swap 0x1 _0 _0 sys
 SYS_REG_CALL swap CALL_HEAP_RESIZE sys #_ ensure capacity_#
 
-$$heap$$.first swap 0 store
-NULL swap 0 store
+$$heap$$.first swap 0x0 store
+NULL swap 0x0 store
 #enddef
 
 #_ [next][prev][len][data] _#
-#def $$heap$$.prev_offset   8 #enddef
-#def $$heap$$.len_offset   16 #enddef
-#def $$heap$$.data_offset  24 #enddef
+#def $$heap$$.prev_offset  0x8    #enddef
+#def $$heap$$.len_offset   0x1 _0 #enddef
+#def $$heap$$.data_offset  0x1 _8 #enddef
 
-#def $$heap$$.next_offset_free 24 #enddef
-#def $$heap$$.prev_offset_free 16 #enddef
+#def $$heap$$.next_offset_free 0x1 _8 #enddef
+#def $$heap$$.prev_offset_free 0x1 _0 #enddef
 
 
 
@@ -103,42 +103,42 @@ $$heap$$.itr     swap $$heap$$.first store #_ *itr=first _#
 $$heap$$.prevEnd swap $$heap$$.start store #_ prevEnd=start _#
 #label heap_alloc.loop #_ while _#
 var1 swap $$heap$$.itr load load store
-var2 swap 0                      store
+var2 swap 0x0                    store
 heap_alloc.append swap eq       jumpif #_ (*itr)!=0 _#
 
 var2 swap $$heap$$.prevEnd  load store
 var1 swap $$heap$$.len      load store
-add swap 1 jumpif 
+add swap 0x1 jumpif 
 var2 swap var0              load store #_ prevEnd+len_#
 var1 swap $$heap$$.data_offset   store
-add swap 1 jumpif 
+add swap 0x1 jumpif 
 var2 swap var0         load      store #_ prevEnd+len+$$heap$$.data_offset _#
 var1 swap $$heap$$.itr load load store
 heap_alloc.insert swap ge jumpif #_ if (*itr)<prevEnd+len+$$heap$$.data_offset _#
 
 var2 swap $$heap$$.len_offset store 
-add swap 1 jumpif 
+add swap 0x1 jumpif 
 var1 swap var0 load      store #_ (*itr+16)  _#
 var2 swap var0 load load store #_ *(*itr+16) _#
-add swap 1 jumpif 
+add swap 0x1 jumpif 
 var0 load rot rot rot inc64 <<2 <<1 swap $$heap$$.prevEnd swap store #_ prevEnd=(*itr+16)+*(*itr+16)+8_#
 
 $$heap$$.itr swap $$heap$$.itr load load store #_ *itr=*(*itr) _#
 
-heap_alloc.loop swap 1 jumpif
+heap_alloc.loop swap 0x1 jumpif
 #label heap_alloc.insert
 var1 swap $$heap$$.itr load load store
 var2 swap $$heap$$.prev_offset   store  
-add swap 1 jumpif
+add swap 0x1 jumpif
 var0 load swap $$heap$$.prevEnd load store #_ TODO *((*itr)+8)=prevEnd_#
-heap_alloc.create swap 1 jumpif
+heap_alloc.create swap 0x1 jumpif
 #label heap_alloc.append
 var1 swap $$heap$$.prevEnd load store
 var2 swap $$heap$$.len     load store
-add swap 1 jumpif
+add swap 0x1 jumpif
 var1 swap var0            load store
 var2 swap $$heap$$.data_offset store
-add swap 1 jumpif #_ remove dupilcate use _#
+add swap 0x1 jumpif #_ remove dupilcate use _#
 SYS_REG_SIZE swap var0 load sys
 SYS_REG_CALL swap CALL_HEAP_RESIZE sys #_ ensureCap(prevEnd+len) _#
 #_ TODO? handle result _#
@@ -149,19 +149,19 @@ $$heap$$.itr load swap store #_ *itr=prevEnd _#
 
 var2 swap $$heap$$.prevEnd     load store
 var1 swap $$heap$$.prev_offset      store
-add  swap 1 jumpif
+add  swap 0x1 jumpif
 var0 load swap $$heap$$.itr    load store #_ *(prevEnd+8)=itr _#
 var1 swap $$heap$$.len_offset       store
-add  swap 1 jumpif
+add  swap 0x1 jumpif
 var0 load swap $$heap$$.len load store #_ *(prevEnd+16)=len _#
 var1 swap $$heap$$.data_offset      store
-add  swap 1 jumpif #_ return prevEnd+24 _#
+add  swap 0x1 jumpif #_ return prevEnd+24 _#
 
 #undef heap.alloc.loop
 #undef heap.alloc.insert
 #undef heap.alloc.append
 #undef heap.alloc.create
-$$heap$$.ret  load swap 1 jumpif
+$$heap$$.ret  load swap 0x1 jumpif
 #_ endof heap_alloc _#
 
 
@@ -176,23 +176,23 @@ $$heap$$.ret swap store
 $$heap$$.len swap var0         load store 
 var1 swap $$heap$$.len         load store
 var2 swap $$heap$$.next_offset_free store
-subt swap 1 jumpif 
+subt swap 0x1 jumpif 
 $$heap$$.prevEnd swap var0     load store
 var1 swap $$heap$$.len         load store
 var2 swap $$heap$$.prev_offset_free store
-subt swap 1 jumpif 
+subt swap 0x1 jumpif 
 $$heap$$.itr swap var0 load store
 load swap $$heap$$.prevEnd load load store #_ prev.next=next_#
 swap var1 swap store 
-var2 swap 0 store
+var2 swap 0x0 store
 heap_free.skip swap eq jumpif
 var2 swap $$heap$$.prev_offset   store
-add swap 1 jumpif
+add  swap 0x1 jumpif
 var0 load swap $$heap$$.itr load load store #_ next.prev=prev_#
 #label heap_free.skip
 #_ TODO? update heap size when last element is removed _#
 
-$$heap$$.ret  load swap 1 jumpif
+$$heap$$.ret  load swap 0x1 jumpif
 #_ endof heap_free _#
 
 
