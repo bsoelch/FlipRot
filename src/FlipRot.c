@@ -19,7 +19,9 @@
 #include <io.h>
 #else
 #include <unistd.h>
+#include <stdint.h>
 #endif
+
 
 #include "Structs.h"
 #include "HashMap.h"
